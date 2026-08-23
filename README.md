@@ -22,9 +22,12 @@
 | Reciprocal Rank Fusion | ✅ | Ready to combine sparse and dense rankings |
 | Artifact fingerprints | ✅ | Configuration and model revisions affect identity |
 | Failure attribution | ✅ | Retrieval and generation failures remain distinct |
-| Automated verification | ✅ | CMake, CTest, Ruff, mypy, CI, and 19 tests |
+| Automated verification | ✅ | CMake, CTest, Ruff, mypy, CI, and 29 tests |
 | ViDoRe V3 HR adapter | ✅ | Frozen revision, English queries, graded page qrels, answers, and pixel boxes |
-| ViDoRe V3 OCR and measured results | ◌ | Adapter exists; corpus materialization and OCR are next |
+| Cached OCR ingestion | ✅ | 1,110 pages processed with zero failures and fingerprinted manifests |
+| Dense and hybrid retrieval | ✅ | Pinned MiniLM embeddings plus page level Reciprocal Rank Fusion |
+| Structure aware context | ✅ | Headings, tables, figures, citations, and fixed token budgets |
+| Real benchmark results | ✅ | All 318 English queries evaluated across five controlled runs |
 
 ## ◈ See it work
 
@@ -33,7 +36,7 @@ Python 3.11 or newer is required.
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[dev,prototype]'
 ```
 
 Run the synthetic retrieval journey:
@@ -83,19 +86,24 @@ Each manifest entry becomes its own CTest test. Configuration fails if a listed 
 ```text
                          OFFLINE
 
-  dataset adapter
-        │
-        ▼
-  canonical pages ──→ deterministic chunks ──→ retrieval index
-        │                       │                       │
-        └──────── provenance ───┴──── fingerprints ────┘
+  frozen ViDoRe adapter ──→ page images + records ──→ cached Tesseract OCR
+             │                         │                         │
+             │                         └──── shipped markdown ───┤
+             │                                                   ▼
+             └──────── manifests + fingerprints ──→ fixed / structured chunks
+                                                               │
+                                               ┌───────────────┴──────────────┐
+                                               ▼                              ▼
+                                          BM25 index                    MiniLM matrix
 
                          ONLINE
 
-  question ──→ retriever ──→ chunk candidates ──→ page projection
-                                                        │
-                                                        ▼
-                                               evidence for scoring
+  question ──→ BM25 + dense retrieval ──→ page projection ──→ RRF
+                                                                  │
+                                      ┌───────────────────────────┴──────────┐
+                                      ▼                                      ▼
+                         token-budgeted evidence                    retrieval metrics
+                         with page citations                  Recall / MRR / nDCG / latency
 ```
 
 | Boundary | Responsibility |
@@ -106,6 +114,60 @@ Each manifest entry becomes its own CTest test. Configuration fails if a listed 
 | Retriever | Rank evidence candidates independently of evaluation semantics |
 | Projection | Convert retrieval units into the dataset judgment unit |
 | Evaluator | Score only metrics supported by declared dataset capabilities |
+
+## ◉ Reproduce the real pipeline
+
+The corpus is frozen to `vidore/vidore_v3_hr` revision `0cdf0979f2c5a0fd3e335e6373b9da48a9fe3bc3`. Tesseract 5 must be available on the machine.
+
+```bash
+PYTHONPATH=src python -m vidore_rag dataset materialize
+PYTHONPATH=src python -m vidore_rag ocr run --workers 8
+PYTHONPATH=src python -m vidore_rag ocr compare
+
+PYTHONPATH=src python -m vidore_rag index build \
+  --policy structure \
+  --text-source markdown
+
+PYTHONPATH=src python -m vidore_rag index build \
+  --policy fixed \
+  --text-source markdown
+
+PYTHONPATH=src python -m vidore_rag index dense
+```
+
+Run one shipped question with gold pages and a citation-ready context bundle:
+
+```bash
+PYTHONPATH=src python -m vidore_rag benchmark query \
+  --query-id 0 \
+  --mode hybrid \
+  --context-budget 600
+```
+
+Run the complete benchmark while retaining query-level evidence in a JSON report:
+
+```bash
+PYTHONPATH=src python -m vidore_rag benchmark evaluate \
+  --mode hybrid \
+  --output results/hybrid.json \
+  --summary-only
+```
+
+## ✧ Measured results
+
+Every row uses the same 318 English queries, page-level graded judgments, `top_k = 10`, and local Apple Silicon machine. Latency covers warm retrieval, projection, and fusion; it excludes one-time model loading.
+
+| Text | Retrieval | nDCG@10 | Recall@10 | MRR | p50 ms | p95 ms |
+|:--|:--|--:|--:|--:|--:|--:|
+| Shipped markdown, fixed chunks | BM25 | 0.4865 | 0.5322 | 0.6113 | 16.79 | 23.61 |
+| Shipped markdown, fixed chunks | MiniLM dense | 0.4400 | 0.4997 | 0.5636 | 6.71 | 18.42 |
+| Shipped markdown, fixed chunks | BM25 + dense RRF | **0.5194** | **0.5792** | **0.6214** | 29.21 | 41.35 |
+| Shipped markdown, structured chunks | BM25 | 0.4742 | 0.5305 | 0.5964 | 19.40 | 26.91 |
+| Tesseract OCR, fixed chunks | BM25 | 0.4719 | 0.5162 | 0.5990 | 16.78 | 23.89 |
+
+RRF improves nDCG@10 by 6.8% and Recall@10 by 8.8% relative to the strongest single retriever. The first structure-aware heuristic does not beat fixed chunks, which is a useful failure result: preserving block boundaries alone is insufficient without better layout recovery and query-aware table handling.
+
+The OCR diagnostic compared token overlap with shipped markdown across all pages: precision `0.8564`, recall `0.9461`, and F1 `0.8990`. This is a consistency signal, not a formal OCR ground-truth score.
 
 ## ◇ The honesty boundary
 
@@ -137,9 +199,9 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | Stage | Deliverable | State |
 |:--:|:--|:--:|
 | 0 | Contracts, fingerprints, CLI, CI, and synthetic sparse slice | ✅ |
-| 1 | Verified ViDoRe adapter, OCR, caching, and official retrieval evaluation | Adapter complete; OCR next |
-| 2 | Dense retrieval plus measured RRF comparison | Planned |
-| 3 | Fixed context versus structure aware context experiment | Planned |
+| 1 | Verified ViDoRe adapter, OCR, caching, and retrieval evaluation | ✅ |
+| 2 | Dense retrieval plus measured RRF comparison | ✅ |
+| 3 | Fixed context versus structure aware context experiment | Retrieval and context construction complete; generation pending |
 | 4 | Retrieved context versus oracle context generation | Planned |
 | 5 | Results, failure analysis, one pager, and submission polish | Planned |
 
@@ -156,4 +218,4 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 
 ## → Next move
 
-Materialize the frozen ViDoRe V3 HR corpus, run OCR with cache fingerprints, and compare OCR text with shipped markdown before building the first measured sparse retrieval baseline.
+Add retrieved-context and oracle-context answer generation, then score answer quality, citations, tokens, estimated cost, TTR, and first-failing-stage attribution. The V3 architecture remains broader than this intentionally tightened V3 Beta implementation.

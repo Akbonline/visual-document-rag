@@ -1,0 +1,78 @@
+{
+  "dataset": {
+    "id": "vidore/vidore_v3_hr",
+    "revision": "0cdf0979f2c5a0fd3e335e6373b9da48a9fe3bc3",
+    "query_count": 318,
+    "judgment_unit": "page",
+    "top_k": 10
+  },
+  "environment": "Apple Silicon MacBook, local warm retrieval",
+  "runs": [
+    {
+      "name": "bm25_fixed_markdown",
+      "text_source": "shipped_markdown",
+      "chunk_policy": "fixed",
+      "retriever": "bm25",
+      "ndcg_at_10": 0.48648329102740473,
+      "recall_at_10": 0.5321503275231272,
+      "mrr": 0.6112795747229709,
+      "latency_p50_ms": 16.78958290722221,
+      "latency_p95_ms": 23.610110708978027
+    },
+    {
+      "name": "dense_fixed_markdown",
+      "text_source": "shipped_markdown",
+      "chunk_policy": "fixed",
+      "retriever": "sentence-transformers/all-MiniLM-L6-v2",
+      "model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "ndcg_at_10": 0.4400446406882866,
+      "recall_at_10": 0.4997160239947938,
+      "mrr": 0.563649296196466,
+      "latency_p50_ms": 6.708854576572776,
+      "latency_p95_ms": 18.42298567062243
+    },
+    {
+      "name": "hybrid_fixed_markdown",
+      "text_source": "shipped_markdown",
+      "chunk_policy": "fixed",
+      "retriever": "bm25_dense_rrf",
+      "ndcg_at_10": 0.5194186465004706,
+      "recall_at_10": 0.5791511218834852,
+      "mrr": 0.621359938105221,
+      "latency_p50_ms": 29.211854562163353,
+      "latency_p95_ms": 41.345116891898215
+    },
+    {
+      "name": "bm25_structure_markdown",
+      "text_source": "shipped_markdown",
+      "chunk_policy": "structure",
+      "retriever": "bm25",
+      "ndcg_at_10": 0.474207874770729,
+      "recall_at_10": 0.5304528214922558,
+      "mrr": 0.5964198362783268,
+      "latency_p50_ms": 19.39745806157589,
+      "latency_p95_ms": 26.912972424179312
+    },
+    {
+      "name": "bm25_fixed_ocr",
+      "text_source": "tesseract_ocr",
+      "chunk_policy": "fixed",
+      "retriever": "bm25",
+      "ndcg_at_10": 0.4718751071001666,
+      "recall_at_10": 0.5162390919764496,
+      "mrr": 0.5990216631726065,
+      "latency_p50_ms": 16.779937548562884,
+      "latency_p95_ms": 23.886616807430983
+    }
+  ],
+  "ocr_consistency": {
+    "comparison": "tesseract_tokens_vs_shipped_markdown_tokens",
+    "page_count": 1110,
+    "source_tokens": 562765,
+    "ocr_tokens": 621744,
+    "precision": 0.856386,
+    "recall": 0.946137,
+    "f1": 0.899027,
+    "warning": "This is not a formal OCR ground-truth benchmark."
+  }
+}

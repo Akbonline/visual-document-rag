@@ -4,8 +4,14 @@
 tests/test_attribution.py
 tests/test_chunking.py
 tests/test_config.py
+tests/test_context.py
 tests/test_contracts.py
+tests/test_dense.py
 tests/test_document_ir.py
 tests/test_fingerprints.py
+tests/test_materialize.py
+tests/test_metrics.py
+tests/test_ocr.py
 tests/test_retrieval.py
+tests/test_structure_chunking.py
 tests/test_vidore_v3_adapter.py

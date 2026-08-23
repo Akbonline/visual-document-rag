@@ -37,6 +37,9 @@ class ChunkRecord(BaseModel):
     text: str = Field(min_length=1)
     token_start: int = Field(ge=0)
     token_end: int = Field(gt=0)
+    kind: str = "fixed"
+    heading_path: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_span(self) -> ChunkRecord:

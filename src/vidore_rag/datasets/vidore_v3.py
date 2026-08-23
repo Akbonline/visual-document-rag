@@ -44,6 +44,10 @@ class ViDoReV3Adapter(DatasetAdapter):
         )
         self._language = language
 
+    @property
+    def language(self) -> str:
+        return self._language
+
     @classmethod
     def from_huggingface(cls, *, language: str = "english") -> ViDoReV3Adapter:
         try:
@@ -77,24 +81,11 @@ class ViDoReV3Adapter(DatasetAdapter):
 
     def iter_pages(self) -> Iterable[PageRecord]:
         for row in self._corpus:
-            native_page_id = int(row["corpus_id"])
-            width, height = _image_dimensions(row.get("image"))
-            yield PageRecord(
-                page_id=self._page_id(native_page_id),
-                document_id=f"{self.DATASET_ID}:document:{row['doc_id']}",
-                page_number=int(row["page_number_in_doc"]) + 1,
-                text=str(row.get("markdown") or ""),
-                image_uri=(
-                    f"hf://{self.DATASET_ID}@{self.REVISION}/corpus/{native_page_id}/image"
-                ),
-                width=width,
-                height=height,
-                metadata={
-                    "native_corpus_id": native_page_id,
-                    "native_page_number": int(row["page_number_in_doc"]),
-                    "text_source": "shipped_markdown",
-                },
-            )
+            yield self._page_from_row(row)
+
+    def iter_page_assets(self) -> Iterable[tuple[PageRecord, Any]]:
+        for row in self._corpus:
+            yield self._page_from_row(row), row.get("image")
 
     def iter_queries(self) -> Iterable[QueryRecord]:
         for row in self._queries:
@@ -140,6 +131,27 @@ class ViDoReV3Adapter(DatasetAdapter):
     @classmethod
     def _query_id(cls, native_query_id: int) -> str:
         return f"{cls.DATASET_ID}:query:{native_query_id}"
+
+    @classmethod
+    def _page_from_row(cls, row: Mapping[str, Any]) -> PageRecord:
+        native_page_id = int(row["corpus_id"])
+        width, height = _image_dimensions(row.get("image"))
+        return PageRecord(
+            page_id=cls._page_id(native_page_id),
+            document_id=f"{cls.DATASET_ID}:document:{row['doc_id']}",
+            page_number=int(row["page_number_in_doc"]) + 1,
+            text=str(row.get("markdown") or ""),
+            image_uri=(
+                f"hf://{cls.DATASET_ID}@{cls.REVISION}/corpus/{native_page_id}/image"
+            ),
+            width=width,
+            height=height,
+            metadata={
+                "native_corpus_id": native_page_id,
+                "native_page_number": int(row["page_number_in_doc"]),
+                "text_source": "shipped_markdown",
+            },
+        )
 
 
 def _string_list(value: Any) -> list[str]:
