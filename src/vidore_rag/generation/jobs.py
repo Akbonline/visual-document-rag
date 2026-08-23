@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -22,6 +23,7 @@ def run_generation_experiment(
     output_root: Path,
     *,
     native_query_ids: list[int],
+    on_progress: Callable[[int, int, str], None] | None = None,
 ) -> GenerationExperimentManifest:
     selected_ids = sorted(set(native_query_ids))
     if not selected_ids:
@@ -47,6 +49,9 @@ def run_generation_experiment(
     completed = [query_id for query_id in selected_ids if _valid_result(results_dir, query_id)]
     pending = [query_id for query_id in selected_ids if query_id not in completed]
     failures: list[GenerationJobFailure] = []
+    processed = len(completed)
+    if on_progress is not None and processed:
+        on_progress(processed, len(selected_ids), "resumed completed query pairs")
     if pending:
         controlled_provider = RateLimitedProvider(
             provider, requests_per_second=config.requests_per_second
@@ -69,11 +74,23 @@ def run_generation_experiment(
                             message=str(exc),
                         )
                     )
+                    processed += 1
+                    if on_progress is not None:
+                        on_progress(
+                            processed,
+                            len(selected_ids),
+                            f"query {query_id} failed: {type(exc).__name__}",
+                        )
                     continue
                 write_json(
                     _result_path(results_dir, query_id), result.model_dump(mode="json")
                 )
                 completed.append(query_id)
+                processed += 1
+                if on_progress is not None:
+                    on_progress(
+                        processed, len(selected_ids), f"query {query_id} completed"
+                    )
     manifest = GenerationExperimentManifest(
         fingerprint=fingerprint,
         dataset_fingerprint=session.text_manifest.source_fingerprint,

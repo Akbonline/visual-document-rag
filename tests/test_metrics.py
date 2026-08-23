@@ -4,10 +4,12 @@ from vidore_rag.contracts import (
     AnswerFormat,
     EvaluationCapabilities,
     JudgmentCardinality,
+    JudgmentRecord,
     JudgmentScale,
     JudgmentStructure,
     JudgmentUnit,
 )
+from vidore_rag.evaluation import group_retrieval_by_evidence_type
 from vidore_rag.evaluation.metrics import MetricStatus, aggregate_metrics, score_query
 
 
@@ -92,3 +94,45 @@ def test_declared_relevance_threshold_controls_recall() -> None:
 
     assert metrics.recall_at_1 == 0
     assert metrics.recall_at_5 == 1
+
+
+def test_evidence_type_breakdown_uses_multi_label_query_membership() -> None:
+    first = score_query(
+        query_id="q1",
+        ranked_page_ids=["p1"],
+        relevance={"p1": 1},
+        capabilities=capabilities(),
+    )
+    second = score_query(
+        query_id="q2",
+        ranked_page_ids=["p2"],
+        relevance={"p2": 1},
+        capabilities=capabilities(),
+    )
+    judgments = [
+        JudgmentRecord(
+            judgment_id="j1",
+            query_id="q1",
+            target_id="p1",
+            judgment_unit=JudgmentUnit.PAGE,
+            relevance=1,
+            content_types=["Text", "Table"],
+        ),
+        JudgmentRecord(
+            judgment_id="j2",
+            query_id="q2",
+            target_id="p2",
+            judgment_unit=JudgmentUnit.PAGE,
+            relevance=1,
+            content_types=["Text"],
+        ),
+    ]
+
+    breakdown = group_retrieval_by_evidence_type(
+        [first, second], judgments, binary_relevance_threshold=1
+    )
+    rows = {row.evidence_type: row for row in breakdown.rows}
+
+    assert rows["Text"].n_queries == 2
+    assert rows["Table"].n_queries == 1
+    assert rows["Chart"].n_queries == 0

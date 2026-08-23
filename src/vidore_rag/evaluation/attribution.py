@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from vidore_rag.contracts import EvidenceRequirementGroup, JudgmentRecord, JudgmentStructure
+
 
 class FailureClass(StrEnum):
     SUCCESS = "success"
@@ -44,12 +46,17 @@ def classify_failure(
     gold_known: bool,
     answerability: AnswerabilityStatus,
     system_refused: bool,
-    retrieved_coverage: float,
-    context_coverage: float,
+    retrieved_coverage: float | None,
+    context_coverage: float | None,
     answer_correct: bool,
     citation_correct: bool,
 ) -> FailureClass:
-    if not gold_known or answerability is AnswerabilityStatus.UNKNOWN:
+    if (
+        not gold_known
+        or answerability is AnswerabilityStatus.UNKNOWN
+        or retrieved_coverage is None
+        or context_coverage is None
+    ):
         return FailureClass.UNSCORABLE_GOLD
     if answerability is AnswerabilityStatus.LABELED_UNANSWERABLE:
         return (
@@ -66,3 +73,46 @@ def classify_failure(
     if not citation_correct:
         return FailureClass.CITATION_FAILURE
     return FailureClass.SUCCESS
+
+
+def evidence_coverage(
+    *,
+    observed_page_ids: set[str],
+    relevant_judgments: list[JudgmentRecord],
+    judgment_structure: JudgmentStructure,
+    requirement_groups: list[EvidenceRequirementGroup],
+) -> float | None:
+    """Return completeness only when the gold evidence semantics make it knowable."""
+
+    gold_page_ids = {judgment.target_id for judgment in relevant_judgments}
+    if not gold_page_ids:
+        return None
+    if judgment_structure is JudgmentStructure.UNKNOWN:
+        return (
+            float(next(iter(gold_page_ids)) in observed_page_ids)
+            if len(gold_page_ids) == 1
+            else None
+        )
+    if judgment_structure in {JudgmentStructure.SINGLE, JudgmentStructure.ANY_OF}:
+        if judgment_structure is JudgmentStructure.SINGLE and len(gold_page_ids) != 1:
+            return None
+        return float(bool(observed_page_ids & gold_page_ids))
+    if judgment_structure is JudgmentStructure.ALL_OF:
+        return len(observed_page_ids & gold_page_ids) / len(gold_page_ids)
+    if judgment_structure is not JudgmentStructure.GROUPED or not requirement_groups:
+        return None
+
+    target_by_judgment = {
+        judgment.judgment_id: judgment.target_id for judgment in relevant_judgments
+    }
+    group_scores: list[float] = []
+    for group in requirement_groups:
+        try:
+            targets = {target_by_judgment[judgment_id] for judgment_id in group.judgment_ids}
+        except KeyError:
+            return None
+        if group.mode == "any_of":
+            group_scores.append(float(bool(observed_page_ids & targets)))
+        else:
+            group_scores.append(len(observed_page_ids & targets) / len(targets))
+    return sum(group_scores) / len(group_scores)

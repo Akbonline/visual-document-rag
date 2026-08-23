@@ -22,7 +22,7 @@
 | Reciprocal Rank Fusion | ✅ | Sparse and dense page rankings are combined without score calibration |
 | Artifact fingerprints | ✅ | Configuration and model revisions affect identity |
 | Failure attribution | ◇ | Retrieval, context, generation, citation, and latency classification is wired; live-provider validation remains |
-| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 48 portable tests, and 2 real-artifact regressions |
+| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 56 portable tests, and 2 real-artifact regressions |
 | ViDoRe V3 HR adapter | ✅ | Frozen revision, English queries, graded page qrels, answers, and pixel boxes |
 | Cached OCR ingestion | ✅ | 1,110 pages processed with zero failures and fingerprinted manifests |
 | Dense and hybrid retrieval | ✅ | Pinned MiniLM embeddings plus page level Reciprocal Rank Fusion |
@@ -184,6 +184,16 @@ PYTHONPATH=src python -m vidore_rag generation run \
   --limit-queries 5
 ```
 
+Run the declared representative Gate C slice:
+
+```bash
+PYTHONPATH=src python -m vidore_rag generation run \
+  --mode hybrid \
+  --selection configs/experiments/gate_c.yaml
+```
+
+Progress is printed per completed query pair. Final JSON remains machine-readable on standard output.
+
 Every completed query is written atomically to its own file. Repeating the command reuses valid completed results and retries unfinished queries. The experiment fingerprint includes the dataset, text index, dense index, projection, provider, model, prompt version, token budgets, scoring threshold, and selected query IDs.
 
 `configs/generation/openai.yaml` pins the current model and token prices. Update and commit that configuration whenever the provider changes pricing; cost is reported as an estimate derived from provider-reported usage.
@@ -201,6 +211,19 @@ Every row uses the same 318 English queries, page-level graded judgments, `top_k
 | Tesseract OCR, fixed chunks | BM25 | 0.4719 | 0.5162 | 0.5990 | 16.78 | 23.89 |
 
 RRF improves nDCG@10 by 6.8% and Recall@10 by 8.8% relative to the strongest single retriever. The first structure-aware heuristic does not beat fixed chunks, which is a useful failure result: preserving block boundaries alone is insufficient without better layout recovery and query-aware table handling.
+
+Gold evidence tags reveal where this text-only retrieval stack struggles. Membership is multi-label, so one query may contribute to several rows.
+
+| Gold evidence type | n queries | nDCG@10 | Recall@10 |
+|:--|--:|--:|--:|
+| Text | 310 | 0.5231 | 0.5844 |
+| Table | 112 | 0.4427 | 0.4783 |
+| Chart | 104 | 0.4962 | 0.5090 |
+| Infographic | 33 | 0.5395 | 0.3956 |
+
+Tables trail Text by 0.0805 absolute nDCG@10. Infographics do not underperform on nDCG, but their Recall@10 is 0.1888 below Text. The result supports testing a targeted visual arm for tables and missed infographic evidence; it does not support claiming that every visual category is uniformly worse. Reproduce the table with `benchmark evidence-breakdown`; the machine-readable result is in `examples/evidence_type_breakdown.json`.
+
+The five-query Gate B generation run completed all ten retrieved/oracle calls for `$0.024642` estimated total cost. Retrieved versus oracle mean token F1 was `0.4237 / 0.3849`; p50 TTR was `1.671s / 1.434s`; p95 TTR was `2.591s / 1.584s`. Because all five queries have multi-page gold with unknown AND/OR semantics, their stage attribution is reported as `unscorable_gold`. See `examples/gate_b_generation_summary.json`.
 
 [MiniLM](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) is intentionally a low-cost dense baseline, not evidence that dense retrieval generally underperforms sparse retrieval. It produces 384-dimensional embeddings, has six transformer layers, and truncates inputs beyond 256 word pieces. The [official ViDoRe V3 monolingual table](https://arxiv.org/html/2601.08620v2) reports HR BM25S nDCG@10 of `0.496`; this implementation's English-only `0.4865` is directionally consistent despite different BM25 and chunking details.
 
@@ -239,7 +262,7 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | 1 | Verified ViDoRe adapter, OCR, caching, and retrieval evaluation | ✅ |
 | 2 | Dense retrieval plus measured RRF comparison | ✅ |
 | 3 | Fixed context versus structure aware context experiment | Retrieval complete; live generation comparison pending |
-| 4 | Retrieved context versus oracle context generation | Implemented; live-provider run pending |
+| 4 | Retrieved context versus oracle context generation | Five-query live Gate B complete; Gate C prepared |
 | 5 | Results, failure analysis, one pager, and submission polish | Planned |
 
 ## ⊙ Scope boundary
@@ -252,8 +275,8 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | Fixed and structure aware context | Full native Office fidelity |
 | Local Python application | Distributed services and Kubernetes |
 | Measured retrieval quality and latency | Production deployment and autoscaling |
-| Paired generation engine and evaluation contracts | Published live generation measurements |
+| Paired generation engine and five-query live measurements | Larger generation benchmark |
 
 ## → Next move
 
-Run the first five-query live generation slice, inspect the outputs manually, then scale only after validating answer quality, citations, token cost, and latency. The V3 architecture remains broader than this intentionally tightened V3 Beta implementation.
+Run the fingerprint-bound 24-query Gate C selection, inspect the evidence-type strata, and scale only if quality, citations, cost, and TTR justify it. The V3 architecture remains broader than this intentionally tightened V3 Beta implementation.

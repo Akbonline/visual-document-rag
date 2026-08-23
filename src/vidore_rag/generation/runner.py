@@ -11,6 +11,7 @@ from vidore_rag.evaluation import BenchmarkSession
 from vidore_rag.evaluation.attribution import (
     FailureClass,
     classify_failure,
+    evidence_coverage,
     resolve_answerability,
 )
 from vidore_rag.generation.evaluation import (
@@ -112,12 +113,27 @@ class GenerationRunner:
             for judgment in self.judgments
             if judgment.query_id == query.query_id
         ]
+        threshold = self.session.capabilities.binary_relevance_threshold
+        assert threshold is not None
+        relevant_judgments = [
+            judgment for judgment in query_judgments if judgment.relevance >= threshold
+        ]
         answer_quality = score_answer(answer.answer, query.reference_answers)
         citation_quality = score_citations(answer, evidence, gold_page_ids)
         localization_quality = score_localization(answer, query_judgments)
         context_page_ids = {item.page_id for item in evidence.items}
-        retrieved_coverage = _coverage(retrieved_page_ids, gold_page_ids)
-        context_coverage = _coverage(context_page_ids, gold_page_ids)
+        retrieved_coverage = evidence_coverage(
+            observed_page_ids=retrieved_page_ids,
+            relevant_judgments=relevant_judgments,
+            judgment_structure=self.session.capabilities.judgment_structure,
+            requirement_groups=query.requirement_groups,
+        )
+        context_coverage = evidence_coverage(
+            observed_page_ids=context_page_ids,
+            relevant_judgments=relevant_judgments,
+            judgment_structure=self.session.capabilities.judgment_structure,
+            requirement_groups=query.requirement_groups,
+        )
         answerability = resolve_answerability(
             is_answerable=query.is_answerable,
             has_answerability_label=self.session.capabilities.has_answerability_label,
@@ -162,6 +178,13 @@ class GenerationRunner:
             model=response.model,
             prompt_fingerprint=prompt_fingerprint,
             failure_class=failure.value,
+            failure_reason=(
+                "multi-page evidence has unknown joint-versus-alternative semantics"
+                if failure is FailureClass.UNSCORABLE_GOLD
+                and len(gold_page_ids) > 1
+                and self.session.capabilities.judgment_structure.value == "unknown"
+                else None
+            ),
         )
 
     def _oracle_hits(self, query_id: str) -> list[SearchHit]:
@@ -193,7 +216,3 @@ class GenerationRunner:
                 )
             )
         return hits
-
-
-def _coverage(observed: set[str], gold: set[str]) -> float:
-    return len(observed & gold) / len(gold) if gold else 0.0

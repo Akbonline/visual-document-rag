@@ -1,4 +1,4 @@
-from vidore_rag.generation.config import load_generation_config
+from vidore_rag.generation.config import load_generation_config, load_generation_selection
 from vidore_rag.generation.evaluation import (
     estimate_cost,
     normalize_answer,
@@ -19,6 +19,7 @@ from vidore_rag.generation.models import (
     GenerationMeasurement,
     GenerationMode,
     GenerationPairResult,
+    GenerationSelection,
     LocalizationQuality,
     PredictedBoundingBox,
     ProviderConfig,
@@ -34,6 +35,12 @@ from vidore_rag.generation.provider import (
     build_provider,
 )
 from vidore_rag.generation.runner import GenerationRunner
+from vidore_rag.generation.summary import (
+    GenerationArmSummary,
+    GenerationExperimentSummary,
+    resolve_recorded_failure,
+    summarize_generation_experiment,
+)
 
 __all__ = [
     "AnswerQuality",
@@ -42,12 +49,15 @@ __all__ = [
     "GeneratedAnswer",
     "GeneratedCitation",
     "GenerationConfig",
+    "GenerationArmSummary",
+    "GenerationExperimentSummary",
     "GenerationExperimentManifest",
     "GenerationJobFailure",
     "GenerationMeasurement",
     "GenerationMode",
     "GenerationPairResult",
     "GenerationRunner",
+    "GenerationSelection",
     "LLMProvider",
     "LocalizationQuality",
     "OpenAIResponsesProvider",
@@ -62,9 +72,12 @@ __all__ = [
     "estimate_cost",
     "load_generation_config",
     "load_generation_results",
+    "load_generation_selection",
     "normalize_answer",
+    "resolve_recorded_failure",
     "score_answer",
     "score_citations",
     "score_localization",
+    "summarize_generation_experiment",
     "run_generation_experiment",
 ]

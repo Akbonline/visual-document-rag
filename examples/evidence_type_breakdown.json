@@ -1,0 +1,29 @@
+{
+  "query_membership": "multi_label",
+  "rows": [
+    {
+      "evidence_type": "Text",
+      "n_queries": 310,
+      "ndcg_at_10": 0.5231455793133859,
+      "recall_at_10": 0.5844195379320913
+    },
+    {
+      "evidence_type": "Table",
+      "n_queries": 112,
+      "ndcg_at_10": 0.442671378660971,
+      "recall_at_10": 0.4782976655267678
+    },
+    {
+      "evidence_type": "Chart",
+      "n_queries": 104,
+      "ndcg_at_10": 0.4961950574677746,
+      "recall_at_10": 0.5089626696716927
+    },
+    {
+      "evidence_type": "Infographic",
+      "n_queries": 33,
+      "ndcg_at_10": 0.5394872298072918,
+      "recall_at_10": 0.3955733547029635
+    }
+  ]
+}

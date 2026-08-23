@@ -46,6 +46,23 @@ class GenerationConfig(BaseModel):
     requests_per_second: float = Field(default=2, gt=0, le=100)
 
 
+class GenerationSelection(BaseModel):
+    schema_version: str = "1"
+    name: str = Field(min_length=1)
+    dataset_fingerprint: str = Field(min_length=64, max_length=64)
+    strategy: str = Field(min_length=1)
+    deterministic_seed: int
+    native_query_ids: list[int] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_query_ids(self) -> GenerationSelection:
+        if len(self.native_query_ids) != len(set(self.native_query_ids)):
+            raise ValueError("generation selection query IDs must be unique")
+        if any(query_id < 0 for query_id in self.native_query_ids):
+            raise ValueError("generation selection query IDs must be non-negative")
+        return self
+
+
 class ProviderRequest(BaseModel):
     instructions: str = Field(min_length=1)
     prompt: str = Field(min_length=1)
@@ -162,6 +179,7 @@ class GenerationMeasurement(BaseModel):
     model: str
     prompt_fingerprint: str = Field(min_length=64, max_length=64)
     failure_class: str
+    failure_reason: str | None = None
 
 
 class GenerationPairResult(BaseModel):

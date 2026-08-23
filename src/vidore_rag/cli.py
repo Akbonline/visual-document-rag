@@ -13,15 +13,23 @@ from vidore_rag.config import inspect_dataset_config
 from vidore_rag.context import ContextBuilder
 from vidore_rag.datasets import build_default_registry
 from vidore_rag.document_ir import PageRecord
-from vidore_rag.evaluation import BenchmarkSession
+from vidore_rag.evaluation import (
+    BenchmarkSession,
+    QueryRetrievalMetrics,
+    group_retrieval_by_evidence_type,
+)
 from vidore_rag.generation import (
     GenerationRunner,
     build_provider,
     load_generation_config,
+    load_generation_results,
+    load_generation_selection,
     run_generation_experiment,
+    summarize_generation_experiment,
 )
 from vidore_rag.ingestion import materialize_dataset as materialize_source
 from vidore_rag.ingestion.fingerprints import stage_fingerprint
+from vidore_rag.ingestion.materialize import load_judgments
 from vidore_rag.ocr import TesseractEngine, compare_ocr_to_source, run_cached_ocr
 from vidore_rag.retrieval import (
     BM25Index,
@@ -282,6 +290,44 @@ def benchmark_evaluate(
     typer.echo(json.dumps(displayed, indent=2, sort_keys=True))
 
 
+@benchmark_app.command("evidence-breakdown")
+def benchmark_evidence_breakdown(
+    results: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
+    source_manifest: Annotated[
+        Path | None, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = None,
+    dataset_config: Annotated[
+        Path, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = DEFAULT_DATASET_CONFIG,
+    output: Annotated[Path | None, typer.Option()] = None,
+) -> None:
+    """Group per-query retrieval quality by gold evidence content type."""
+
+    inspection = inspect_dataset_config(
+        dataset_config, available_adapters=DATASET_REGISTRY.names()
+    )
+    if not inspection.schema_valid or inspection.config is None:
+        raise typer.BadParameter("dataset configuration is not schema-valid")
+    threshold = inspection.config.evaluation.capabilities.binary_relevance_threshold
+    if threshold is None:
+        raise typer.BadParameter("dataset has no binary relevance threshold")
+    resolved_source = source_manifest or _latest_manifest(ARTIFACT_ROOT / "materialized")
+    raw_results = read_json(results)
+    query_metrics = [
+        QueryRetrievalMetrics.model_validate(row) for row in raw_results["queries"]
+    ]
+    breakdown = group_retrieval_by_evidence_type(
+        query_metrics,
+        load_judgments(resolved_source),
+        binary_relevance_threshold=threshold,
+    )
+    payload = breakdown.model_dump(mode="json")
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+
+
 @generation_app.command("query")
 def generation_query(
     query_id: Annotated[int, typer.Option(min=0)],
@@ -322,6 +368,9 @@ def generation_run(
     dense_manifest: Annotated[Path | None, typer.Option()] = None,
     output: Annotated[Path, typer.Option()] = ARTIFACT_ROOT / "generation",
     limit_queries: Annotated[int | None, typer.Option(min=1)] = None,
+    selection: Annotated[
+        Path | None, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = None,
 ) -> None:
     """Run a resumable paired generation experiment over the selected queries."""
 
@@ -333,8 +382,23 @@ def generation_run(
         provider = build_provider(generation_config.provider)
     except (RuntimeError, ValueError) as exc:
         raise typer.BadParameter(str(exc)) from exc
-    query_ids = [int(query.metadata["native_query_id"]) for query in session.queries]
-    if limit_queries is not None:
+    if limit_queries is not None and selection is not None:
+        raise typer.BadParameter("--limit-queries and --selection are mutually exclusive")
+    available_ids = {
+        int(query.metadata["native_query_id"]) for query in session.queries
+    }
+    query_ids = sorted(available_ids)
+    if selection is not None:
+        selected = load_generation_selection(selection)
+        if selected.dataset_fingerprint != session.text_manifest.source_fingerprint:
+            raise typer.BadParameter("selection dataset fingerprint does not match the index")
+        missing = set(selected.native_query_ids) - available_ids
+        if missing:
+            raise typer.BadParameter(
+                f"selection contains query IDs outside this dataset slice: {sorted(missing)}"
+            )
+        query_ids = selected.native_query_ids
+    elif limit_queries is not None:
         query_ids = query_ids[:limit_queries]
     runner = GenerationRunner(session, provider, generation_config)
     manifest = run_generation_experiment(
@@ -343,9 +407,43 @@ def generation_run(
         generation_config,
         output,
         native_query_ids=query_ids,
+        on_progress=lambda completed, total, message: typer.echo(
+            f"[{completed}/{total}] {message}", err=True
+        ),
     )
     payload = manifest.model_dump(mode="json")
     payload["manifest_path"] = str(output / manifest.fingerprint / "manifest.json")
+    typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+
+
+@generation_app.command("summarize")
+def generation_summarize(
+    manifest: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
+    source_manifest: Annotated[
+        Path | None, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = None,
+    dataset_config: Annotated[
+        Path, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = DEFAULT_DATASET_CONFIG,
+    output: Annotated[Path | None, typer.Option()] = None,
+) -> None:
+    """Summarize completed generation pairs under declared gold semantics."""
+
+    inspection = inspect_dataset_config(
+        dataset_config, available_adapters=DATASET_REGISTRY.names()
+    )
+    if not inspection.schema_valid or inspection.config is None:
+        raise typer.BadParameter("dataset configuration is not schema-valid")
+    resolved_source = source_manifest or _latest_manifest(ARTIFACT_ROOT / "materialized")
+    summary = summarize_generation_experiment(
+        load_generation_results(manifest),
+        load_judgments(resolved_source),
+        inspection.config.evaluation.capabilities,
+    )
+    payload = summary.model_dump(mode="json")
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
 

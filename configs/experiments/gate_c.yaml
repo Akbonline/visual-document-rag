@@ -1,0 +1,33 @@
+schema_version: "1"
+name: gate-c-stratified-24
+dataset_fingerprint: c30f10d4d97b89e4d04d762683aabaa18de86731ef2bbbc7f1d75f87f4a2ebe3
+strategy: >-
+  Six deterministic samples from each mutually exclusive stratum: text-only,
+  table, chart, and infographic. Priority for overlapping labels is
+  infographic, then chart, then table, then text. Seed 20260823.
+deterministic_seed: 20260823
+native_query_ids:
+  - 6
+  - 12
+  - 32
+  - 39
+  - 75
+  - 84
+  - 103
+  - 113
+  - 127
+  - 136
+  - 156
+  - 160
+  - 166
+  - 167
+  - 192
+  - 197
+  - 257
+  - 261
+  - 281
+  - 283
+  - 284
+  - 290
+  - 291
+  - 1811

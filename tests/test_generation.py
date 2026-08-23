@@ -5,7 +5,12 @@ from typing import Any
 
 import pytest
 
-from vidore_rag.contracts import BoundingBoxEvidence, JudgmentRecord, JudgmentUnit
+from vidore_rag.contracts import (
+    BoundingBoxEvidence,
+    JudgmentRecord,
+    JudgmentStructure,
+    JudgmentUnit,
+)
 from vidore_rag.datasets.vidore_v3 import ViDoReV3Adapter
 from vidore_rag.evaluation import BenchmarkSession
 from vidore_rag.generation import (
@@ -21,6 +26,7 @@ from vidore_rag.generation import (
     ProviderResponse,
     TokenUsage,
     load_generation_results,
+    resolve_recorded_failure,
     run_generation_experiment,
     score_localization,
 )
@@ -265,9 +271,17 @@ def test_generation_experiment_resumes_completed_query_files(tmp_path: Path) -> 
         requests_per_second=100,
     )
     runner = GenerationRunner(session, provider, config)
+    progress: list[tuple[int, int, str]] = []
 
     first = run_generation_experiment(
-        runner, provider, config, tmp_path / "generation", native_query_ids=[42]
+        runner,
+        provider,
+        config,
+        tmp_path / "generation",
+        native_query_ids=[42],
+        on_progress=lambda completed, total, message: progress.append(
+            (completed, total, message)
+        ),
     )
     second = run_generation_experiment(
         runner, provider, config, tmp_path / "generation", native_query_ids=[42]
@@ -278,6 +292,7 @@ def test_generation_experiment_resumes_completed_query_files(tmp_path: Path) -> 
     assert second.completed_query_ids == [42]
     assert len(provider.requests) == 2
     assert len(load_generation_results(manifest_path)) == 1
+    assert progress == [(1, 1, "query 42 completed")]
 
 
 def test_generated_answer_schema_forbids_unexpected_provider_fields() -> None:
@@ -317,3 +332,13 @@ def test_generated_answer_schema_satisfies_strict_provider_requirements() -> Non
     for object_schema in (schema, citation_schema, box_schema):
         assert object_schema["additionalProperties"] is False
         assert set(object_schema["required"]) == set(object_schema["properties"])
+
+
+def test_recorded_attribution_is_unscorable_for_unknown_multi_page_gold() -> None:
+    result = resolve_recorded_failure(
+        recorded_failure="retrieval_incomplete",
+        relevant_page_count=3,
+        judgment_structure=JudgmentStructure.UNKNOWN,
+    )
+
+    assert result == "unscorable_gold"

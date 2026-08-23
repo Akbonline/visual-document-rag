@@ -5,9 +5,14 @@ from typing import Any
 
 import yaml
 
-from vidore_rag.generation.models import GenerationConfig
+from vidore_rag.generation.models import GenerationConfig, GenerationSelection
 
 
 def load_generation_config(path: Path) -> GenerationConfig:
     raw: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
     return GenerationConfig.model_validate(raw)
+
+
+def load_generation_selection(path: Path) -> GenerationSelection:
+    raw: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return GenerationSelection.model_validate(raw)
