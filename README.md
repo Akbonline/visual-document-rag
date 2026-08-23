@@ -225,6 +225,19 @@ Tables trail Text by 0.0805 absolute nDCG@10. Infographics do not underperform o
 
 The five-query Gate B generation run completed all ten retrieved/oracle calls for `$0.024642` estimated total cost. Retrieved versus oracle mean token F1 was `0.4237 / 0.3849`; p50 TTR was `1.671s / 1.434s`; p95 TTR was `2.591s / 1.584s`. Because all five queries have multi-page gold with unknown AND/OR semantics, their stage attribution is reported as `unscorable_gold`. See `examples/gate_b_generation_summary.json`.
 
+The deterministic 24-query Gate C run completed all 48 model calls with zero provider failures for `$0.118252`. Retrieved versus oracle mean token F1 was `0.4518 / 0.4884`; gold-page citation recall was `0.2495 / 0.5435`; p50 TTR was `1.512s / 1.293s`. Valid-context precision was `1.0` in both arms. The oracle gain isolates a retrieval contribution, while the remaining oracle errors show that better pages alone do not solve context interpretation and answer generation. See `examples/gate_c_generation_summary.json`.
+
+Gate C also uses mutually exclusive evidence strata, six queries each. These small groups are diagnostic rather than statistically powered.
+
+| Gold evidence stratum | Retrieved token F1 | Oracle token F1 | Retrieved gold-page citation recall | Retrieved p50 TTR |
+|:--|--:|--:|--:|--:|
+| Text-only | 0.4318 | 0.4565 | 0.1518 | 1.447s |
+| Table | 0.5024 | 0.5685 | 0.2667 | 1.455s |
+| Chart | 0.5283 | 0.5440 | 0.2198 | 1.523s |
+| Infographic | 0.3448 | 0.3846 | 0.3596 | 2.416s |
+
+Infographics produced the lowest answer F1 and slowest response in both arms. Their weak oracle result suggests that the next visual experiment must improve evidence interpretation and serialization, not merely page retrieval. Reproduce the table with `generation evidence-breakdown`; the machine-readable result is in `examples/gate_c_evidence_breakdown.json`.
+
 [MiniLM](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) is intentionally a low-cost dense baseline, not evidence that dense retrieval generally underperforms sparse retrieval. It produces 384-dimensional embeddings, has six transformer layers, and truncates inputs beyond 256 word pieces. The [official ViDoRe V3 monolingual table](https://arxiv.org/html/2601.08620v2) reports HR BM25S nDCG@10 of `0.496`; this implementation's English-only `0.4865` is directionally consistent despite different BM25 and chunking details.
 
 The OCR diagnostic compared token overlap with shipped markdown across all pages: precision `0.8564`, recall `0.9461`, and F1 `0.8990`. This is a consistency signal, not a formal OCR ground-truth score.
@@ -262,7 +275,7 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | 1 | Verified ViDoRe adapter, OCR, caching, and retrieval evaluation | ✅ |
 | 2 | Dense retrieval plus measured RRF comparison | ✅ |
 | 3 | Fixed context versus structure aware context experiment | Retrieval complete; live generation comparison pending |
-| 4 | Retrieved context versus oracle context generation | Five-query live Gate B complete; Gate C prepared |
+| 4 | Retrieved context versus oracle context generation | Gate C complete: 24 queries and 48 live calls |
 | 5 | Results, failure analysis, one pager, and submission polish | Planned |
 
 ## ⊙ Scope boundary
@@ -275,8 +288,8 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | Fixed and structure aware context | Full native Office fidelity |
 | Local Python application | Distributed services and Kubernetes |
 | Measured retrieval quality and latency | Production deployment and autoscaling |
-| Paired generation engine and five-query live measurements | Larger generation benchmark |
+| Paired generation engine and 24-query stratified live measurements | Full 318-query generation benchmark |
 
 ## → Next move
 
-Run the fingerprint-bound 24-query Gate C selection, inspect the evidence-type strata, and scale only if quality, citations, cost, and TTR justify it. The V3 architecture remains broader than this intentionally tightened V3 Beta implementation.
+Finish the one-pager and failure analysis using the measured Gate C evidence. Keep the full 318-query paid run gated: Gate C is sufficient for a weekend diagnostic, and the next technically informative experiment is a targeted visual arm rather than more calls through the unchanged text-only pipeline.

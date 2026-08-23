@@ -25,6 +25,7 @@ from vidore_rag.generation import (
     load_generation_results,
     load_generation_selection,
     run_generation_experiment,
+    summarize_generation_by_evidence_type,
     summarize_generation_experiment,
 )
 from vidore_rag.ingestion import materialize_dataset as materialize_source
@@ -68,9 +69,7 @@ DATASET_REGISTRY = build_default_registry()
 def inspect_dataset(
     config: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
 ) -> None:
-    inspection = inspect_dataset_config(
-        config, available_adapters=DATASET_REGISTRY.names()
-    )
+    inspection = inspect_dataset_config(config, available_adapters=DATASET_REGISTRY.names())
     typer.echo(json.dumps(inspection.model_dump(mode="json"), indent=2, sort_keys=True))
     if not inspection.ready:
         raise typer.Exit(code=2)
@@ -87,9 +86,7 @@ def materialize_dataset(
 ) -> None:
     """Materialize any registered dataset through the shared adapter contract."""
 
-    inspection = inspect_dataset_config(
-        config, available_adapters=DATASET_REGISTRY.names()
-    )
+    inspection = inspect_dataset_config(config, available_adapters=DATASET_REGISTRY.names())
     if not inspection.schema_valid or inspection.config is None:
         raise typer.BadParameter("dataset configuration is not schema-valid")
     adapter_name = adapter or inspection.config.dataset.adapter
@@ -136,9 +133,7 @@ def demo_retrieve(
     chunk_hits = BM25Index(chunks).search(question, limit=limit * 3)
     page_hits = project_chunks_to_pages(chunk_hits, limit=limit)
     typer.echo(
-        json.dumps(
-            [hit.model_dump(mode="json") for hit in page_hits], indent=2, sort_keys=True
-        )
+        json.dumps([hit.model_dump(mode="json") for hit in page_hits], indent=2, sort_keys=True)
     )
 
 
@@ -212,20 +207,14 @@ def index_build(
 def index_dense(
     text_index_manifest: Annotated[Path | None, typer.Option()] = None,
     output: Annotated[Path, typer.Option()] = ARTIFACT_ROOT / "dense_indexes",
-    model_name: Annotated[str, typer.Option()] = (
-        "sentence-transformers/all-MiniLM-L6-v2"
-    ),
-    model_revision: Annotated[str, typer.Option()] = (
-        "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
-    ),
+    model_name: Annotated[str, typer.Option()] = ("sentence-transformers/all-MiniLM-L6-v2"),
+    model_revision: Annotated[str, typer.Option()] = ("1110a243fdf4706b3f48f1d95db1a4f5529b4d41"),
     batch_size: Annotated[int, typer.Option(min=1)] = 32,
     device: Annotated[str, typer.Option()] = "auto",
 ) -> None:
     """Embed the text index into a persistent normalized dense matrix."""
 
-    text_manifest = text_index_manifest or _latest_manifest(
-        ARTIFACT_ROOT / "text_indexes"
-    )
+    text_manifest = text_index_manifest or _latest_manifest(ARTIFACT_ROOT / "text_indexes")
     result = build_dense_index(
         text_manifest,
         output,
@@ -251,15 +240,13 @@ def benchmark_query(
 ) -> None:
     """Run one shipped query and compare retrieved pages with gold pages."""
 
-    session = _benchmark_session(
-        mode, text_index_manifest, dense_manifest, dataset_config
-    )
+    session = _benchmark_session(mode, text_index_manifest, dense_manifest, dataset_config)
     result = session.query_by_native_id(query_id, limit=limit)
     payload = result.model_dump(mode="json")
     if context_budget is not None:
-        payload["context"] = ContextBuilder(token_budget=context_budget).build(
-            result.hits
-        ).model_dump(mode="json")
+        payload["context"] = (
+            ContextBuilder(token_budget=context_budget).build(result.hits).model_dump(mode="json")
+        )
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
 
@@ -278,9 +265,7 @@ def benchmark_evaluate(
 ) -> None:
     """Evaluate a retriever over the selected English query slice."""
 
-    session = _benchmark_session(
-        mode, text_index_manifest, dense_manifest, dataset_config
-    )
+    session = _benchmark_session(mode, text_index_manifest, dense_manifest, dataset_config)
     report = session.evaluate(limit_queries=limit_queries, top_k=top_k)
     payload = report.model_dump(mode="json")
     if output is not None:
@@ -303,9 +288,7 @@ def benchmark_evidence_breakdown(
 ) -> None:
     """Group per-query retrieval quality by gold evidence content type."""
 
-    inspection = inspect_dataset_config(
-        dataset_config, available_adapters=DATASET_REGISTRY.names()
-    )
+    inspection = inspect_dataset_config(dataset_config, available_adapters=DATASET_REGISTRY.names())
     if not inspection.schema_valid or inspection.config is None:
         raise typer.BadParameter("dataset configuration is not schema-valid")
     threshold = inspection.config.evaluation.capabilities.binary_relevance_threshold
@@ -313,9 +296,7 @@ def benchmark_evidence_breakdown(
         raise typer.BadParameter("dataset has no binary relevance threshold")
     resolved_source = source_manifest or _latest_manifest(ARTIFACT_ROOT / "materialized")
     raw_results = read_json(results)
-    query_metrics = [
-        QueryRetrievalMetrics.model_validate(row) for row in raw_results["queries"]
-    ]
+    query_metrics = [QueryRetrievalMetrics.model_validate(row) for row in raw_results["queries"]]
     breakdown = group_retrieval_by_evidence_type(
         query_metrics,
         load_judgments(resolved_source),
@@ -344,9 +325,7 @@ def generation_query(
     """Generate paired retrieved-context and oracle-context answers."""
 
     generation_config = load_generation_config(config)
-    session = _benchmark_session(
-        mode, text_index_manifest, dense_manifest, dataset_config
-    )
+    session = _benchmark_session(mode, text_index_manifest, dense_manifest, dataset_config)
     try:
         provider = build_provider(generation_config.provider)
     except (RuntimeError, ValueError) as exc:
@@ -375,18 +354,14 @@ def generation_run(
     """Run a resumable paired generation experiment over the selected queries."""
 
     generation_config = load_generation_config(config)
-    session = _benchmark_session(
-        mode, text_index_manifest, dense_manifest, dataset_config
-    )
+    session = _benchmark_session(mode, text_index_manifest, dense_manifest, dataset_config)
     try:
         provider = build_provider(generation_config.provider)
     except (RuntimeError, ValueError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     if limit_queries is not None and selection is not None:
         raise typer.BadParameter("--limit-queries and --selection are mutually exclusive")
-    available_ids = {
-        int(query.metadata["native_query_id"]) for query in session.queries
-    }
+    available_ids = {int(query.metadata["native_query_id"]) for query in session.queries}
     query_ids = sorted(available_ids)
     if selection is not None:
         selected = load_generation_selection(selection)
@@ -429,13 +404,40 @@ def generation_summarize(
 ) -> None:
     """Summarize completed generation pairs under declared gold semantics."""
 
-    inspection = inspect_dataset_config(
-        dataset_config, available_adapters=DATASET_REGISTRY.names()
-    )
+    inspection = inspect_dataset_config(dataset_config, available_adapters=DATASET_REGISTRY.names())
     if not inspection.schema_valid or inspection.config is None:
         raise typer.BadParameter("dataset configuration is not schema-valid")
     resolved_source = source_manifest or _latest_manifest(ARTIFACT_ROOT / "materialized")
     summary = summarize_generation_experiment(
+        load_generation_results(manifest),
+        load_judgments(resolved_source),
+        inspection.config.evaluation.capabilities,
+    )
+    payload = summary.model_dump(mode="json")
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+
+
+@generation_app.command("evidence-breakdown")
+def generation_evidence_breakdown(
+    manifest: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
+    source_manifest: Annotated[
+        Path | None, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = None,
+    dataset_config: Annotated[
+        Path, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = DEFAULT_DATASET_CONFIG,
+    output: Annotated[Path | None, typer.Option()] = None,
+) -> None:
+    """Group generation quality by mutually exclusive gold evidence stratum."""
+
+    inspection = inspect_dataset_config(dataset_config, available_adapters=DATASET_REGISTRY.names())
+    if not inspection.schema_valid or inspection.config is None:
+        raise typer.BadParameter("dataset configuration is not schema-valid")
+    resolved_source = source_manifest or _latest_manifest(ARTIFACT_ROOT / "materialized")
+    summary = summarize_generation_by_evidence_type(
         load_generation_results(manifest),
         load_judgments(resolved_source),
         inspection.config.evaluation.capabilities,
@@ -458,9 +460,7 @@ def _benchmark_session(
     text_manifest, resolved_dense = _resolve_index_manifests(
         mode, text_index_manifest, dense_manifest
     )
-    inspection = inspect_dataset_config(
-        dataset_config, available_adapters=DATASET_REGISTRY.names()
-    )
+    inspection = inspect_dataset_config(dataset_config, available_adapters=DATASET_REGISTRY.names())
     if not inspection.schema_valid or inspection.config is None:
         raise typer.BadParameter("dataset configuration is not schema-valid")
     return BenchmarkSession(

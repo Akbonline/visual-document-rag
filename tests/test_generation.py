@@ -29,6 +29,7 @@ from vidore_rag.generation import (
     resolve_recorded_failure,
     run_generation_experiment,
     score_localization,
+    summarize_generation_by_evidence_type,
 )
 from vidore_rag.ingestion import materialize_dataset
 from vidore_rag.retrieval import build_text_index
@@ -159,6 +160,12 @@ def test_retrieved_and_oracle_generation_use_the_shared_contract(tmp_path: Path)
     assert result.retrieved.failure_class == "success"
     assert result.retrieved.localization_quality.status == "not_applicable"
 
+    breakdown = summarize_generation_by_evidence_type(
+        [result], list(adapter.iter_judgments()), session.capabilities
+    )
+    assert [(row.evidence_type, row.n_queries) for row in breakdown.rows] == [("Text-only", 1)]
+    assert breakdown.rows[0].retrieved.mean_answer_token_f1 == 1
+
 
 def test_localization_scores_predicted_boxes_against_real_pixel_gold() -> None:
     page_id = "dataset:page:7"
@@ -279,9 +286,7 @@ def test_generation_experiment_resumes_completed_query_files(tmp_path: Path) -> 
         config,
         tmp_path / "generation",
         native_query_ids=[42],
-        on_progress=lambda completed, total, message: progress.append(
-            (completed, total, message)
-        ),
+        on_progress=lambda completed, total, message: progress.append((completed, total, message)),
     )
     second = run_generation_experiment(
         runner, provider, config, tmp_path / "generation", native_query_ids=[42]

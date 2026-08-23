@@ -37,8 +37,12 @@ from vidore_rag.generation.provider import (
 from vidore_rag.generation.runner import GenerationRunner
 from vidore_rag.generation.summary import (
     GenerationArmSummary,
+    GenerationEvidenceBreakdown,
+    GenerationEvidenceRow,
     GenerationExperimentSummary,
+    assign_evidence_stratum,
     resolve_recorded_failure,
+    summarize_generation_by_evidence_type,
     summarize_generation_experiment,
 )
 
@@ -50,6 +54,8 @@ __all__ = [
     "GeneratedCitation",
     "GenerationConfig",
     "GenerationArmSummary",
+    "GenerationEvidenceBreakdown",
+    "GenerationEvidenceRow",
     "GenerationExperimentSummary",
     "GenerationExperimentManifest",
     "GenerationJobFailure",
@@ -69,6 +75,7 @@ __all__ = [
     "TokenUsage",
     "build_provider",
     "build_request",
+    "assign_evidence_stratum",
     "estimate_cost",
     "load_generation_config",
     "load_generation_results",
@@ -79,5 +86,6 @@ __all__ = [
     "score_citations",
     "score_localization",
     "summarize_generation_experiment",
+    "summarize_generation_by_evidence_type",
     "run_generation_experiment",
 ]
