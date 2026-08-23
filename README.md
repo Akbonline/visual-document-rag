@@ -22,7 +22,7 @@
 | Reciprocal Rank Fusion | ✅ | Sparse and dense page rankings are combined without score calibration |
 | Artifact fingerprints | ✅ | Configuration and model revisions affect identity |
 | Failure attribution | ✅ | Retrieval, context, generation, citation, and latency classification is wired and exercised by Gate C |
-| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 56 Python tests, 4 frontend tests, and 2 real-artifact regressions |
+| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 61 Python tests, 7 frontend tests, and real-artifact regressions |
 | ViDoRe V3 HR adapter | ✅ | Frozen revision, English queries, graded page qrels, answers, and pixel boxes |
 | Cached OCR ingestion | ✅ | 1,110 pages processed with zero failures and fingerprinted manifests |
 | Dense and hybrid retrieval | ✅ | Pinned MiniLM embeddings plus page level Reciprocal Rank Fusion |
@@ -30,6 +30,7 @@
 | Real benchmark results | ✅ | All 318 English queries evaluated across five controlled runs |
 | Paired RAG generation | ✅ | Retrieved and oracle paths, structured answers, cost, tokens, TTR, citations, resumable jobs, and live Gate C results |
 | Interactive evidence lab | ✅ | 24 real queries with answer controls, cited source pages, human boxes, cost, tokens, and TTR |
+| Live research workbench | ✅ | FastAPI retrieval traces, copyable grounded prompts, and trace-bound output validation |
 
 ## ◈ See it work
 
@@ -77,6 +78,52 @@ npm run build
 ```
 
 For a GitHub import in Vercel, set the Root Directory to `frontend`. The committed `vercel.json` builds and serves `dist`. Refresh the evidence bundle from the ignored local artifacts with `PYTHONPATH=src .venv/bin/python scripts/export_frontend_demo.py`.
+
+### Run the live workbench
+
+Install the API and retrieval dependencies:
+
+```bash
+python -m pip install -e '.[dev,api,prototype]'
+```
+
+Start FastAPI from the repository root:
+
+```bash
+PYTHONPATH=src uvicorn vidore_rag.api.app:app \
+  --host 127.0.0.1 \
+  --port 8000 \
+  --reload
+```
+
+In a second terminal, point Vite at that API:
+
+```bash
+cd frontend
+cp .env.example .env.local
+npm ci
+npm run dev
+```
+
+The **Query Console** runs BM25, MiniLM dense retrieval, page projection, RRF, and token-budgeted context construction against the committed real corpus artifacts. It exposes each intermediate ranking and the exact prompt rather than substituting simulated data.
+
+The **Output Validator** is bound to a server-retained retrieval trace. It checks the strict JSON schema, citation membership, exact quote support, and pixel coordinate bounds. If the question exactly matches one of the 318 benchmark questions, it also reports reference-answer and gold-evidence metrics. For arbitrary questions, correctness is explicitly `not_applicable` because no trustworthy gold answer exists.
+
+No LLM provider is called by the public workbench. Users copy the grounded prompt to a provider they control, then paste the structured answer back for deterministic validation.
+
+### Deploy the two services
+
+The frontend remains a static Vercel deployment. Deploy `render.yaml` as a Render Blueprint for the read-only FastAPI service, then set this Vercel environment variable and redeploy the frontend:
+
+```text
+VITE_API_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com
+```
+
+The Blueprint deliberately selects Render Standard with 2 GB RAM. Render Free and Starter provide 512 MB, which is not a reliable memory envelope for the full PyTorch and Transformers hybrid path. This is a paid deployment decision; change it only if you also remove or replace the dense runtime.
+
+The Render build downloads and verifies the exact pinned MiniLM revision against the committed embedding dimensions. Runtime network lookup is then disabled and the encoder is preloaded before the health check becomes ready. A missing model fails startup immediately instead of hanging the first hybrid request.
+
+The API verifies every committed artifact checksum at startup, permits only declared CORS origins, validates request bodies, rate limits non-health requests, assigns request IDs, and emits structured request logs. The in-memory validation trace is intentionally bounded and expires after one hour. A multi-instance production deployment should replace that process-local trace store with Redis.
 
 ## ◎ Run the tests
 

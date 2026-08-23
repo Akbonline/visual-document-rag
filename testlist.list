@@ -2,6 +2,7 @@
 # CMake validates every entry and registers each file as a separate CTest test.
 
 tests/test_attribution.py
+tests/test_api.py
 tests/test_benchmark_summary.py
 tests/test_chunking.py
 tests/test_cli.py

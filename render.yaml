@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: visual-document-rag-api
+    runtime: python
+    plan: standard
+    buildCommand: python -m pip install -e '.[api,prototype]' && python scripts/cache_dense_model.py
+    startCommand: uvicorn vidore_rag.api.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.15
+      - key: VIDORE_RAG_REQUESTS_PER_MINUTE
+        value: "60"
+      - key: VIDORE_RAG_CORS_ORIGINS
+        value: https://visual-document-rag.vercel.app
+      - key: VIDORE_RAG_LOCAL_MODELS_ONLY
+        value: "true"
+      - key: VIDORE_RAG_DENSE_DEVICE
+        value: cpu
+      - key: VIDORE_RAG_PRELOAD_DENSE
+        value: "true"
+      - key: HF_HOME
+        value: deployment/model_cache

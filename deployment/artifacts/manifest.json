@@ -1,0 +1,20 @@
+{
+  "chunk_count": 4229,
+  "dataset_fingerprint": "c30f10d4d97b89e4d04d762683aabaa18de86731ef2bbbc7f1d75f87f4a2ebe3",
+  "dataset_id": "vidore/vidore_v3_hr",
+  "dense_index_fingerprint": "ae9a5faa4ec9ced01608205996fcff7bd24e9e5942e7e61b104e5b2bd40b2a14",
+  "files": {
+    "chunks.jsonl": "4b107ec123208c1d66cfbed5e93f196147db2e6f927d621724c27b0e2ca55c51",
+    "embeddings.npy": "dec48c330ab4d9f4a90510db441c208a6436742bea34756f4bbd184af7fd4f42",
+    "judgments.jsonl": "e566d32afb9d3c3e5483308a48aaeaafab26410b81815a8f735591d937cbcd64",
+    "pages.jsonl": "32556b8a5598e44bdb7d6d6bd2cc06a955db85d4a7427fc55f1cf45cfac79946",
+    "queries.jsonl": "0cf0540e339c77c48a26733979b45c07faa2fa0b448aac00135a862ebf82154a"
+  },
+  "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+  "model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "page_count": 1110,
+  "projection_fingerprint": "b3cbf6f50418e411599d3486091bb8e66ef57419aa3720245799ca8b4bc7ca2a",
+  "query_count": 318,
+  "schema_version": "1",
+  "text_index_fingerprint": "bf971d36baf939425ff8062e1ef1c25e6aa13ad8188c23e37f495b26807134b1"
+}

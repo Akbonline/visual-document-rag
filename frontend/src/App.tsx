@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import type { RetrievalTrace } from "./api";
 import rawData from "./data/demo.json";
 import { compactNumber, dollars, percent, seconds } from "./format";
+import LiveConsole from "./LiveConsole";
+import OutputValidator from "./OutputValidator";
 import type { Arm, DemoData, DemoQuery, Page } from "./types";
 
 const data = rawData as DemoData;
 type ArmName = "retrieved" | "oracle";
+type WorkspaceTab = "evidence" | "console" | "validator";
 
 function ArrowIcon() {
   return (
@@ -57,7 +61,7 @@ function Hero() {
           <span>Evidence Lab</span>
         </a>
         <div className="nav-links">
-          <a href="#experiment">Experiment</a>
+          <a href="#experiment">Workbench</a>
           <a href="#results">Results</a>
           <a href="#reasoning">Reasoning</a>
           <a className="github-link" href="https://github.com/Akbonline/visual-document-rag" target="_blank" rel="noreferrer">
@@ -285,19 +289,50 @@ function AnswerPanel({ query }: { query: DemoQuery }) {
 function Experiment() {
   const initial = data.queries.find((query) => query.nativeQueryId === 6) ?? data.queries[0];
   const [selected, setSelected] = useState(initial);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("evidence");
+  const [trace, setTrace] = useState<RetrievalTrace | null>(null);
   return (
     <section className="experiment-section" id="experiment">
       <div className="section-intro shell">
         <div>
-          <span className="kicker">Inspect one result end to end</span>
-          <h2>Evidence, not just an answer.</h2>
+          <span className="kicker">One system, three views</span>
+          <h2>Replay it. Run it. Validate it.</h2>
         </div>
-        <p>{data.recordingNotice}</p>
+        <p>The measured replay stays immutable. The live console exposes every retrieval boundary, and the validator checks outputs against the exact retained context.</p>
       </div>
-      <div className="lab-shell shell">
-        <QueryList selected={selected} onSelect={setSelected} />
-        <AnswerPanel query={selected} />
+      <div className="workspace-tabs shell" role="tablist" aria-label="Research workbench">
+        <button className={activeTab === "evidence" ? "active" : ""} onClick={() => setActiveTab("evidence")}>
+          <span>01</span><strong>Gold Evidence Lab</strong><small>Recorded Gate C</small>
+        </button>
+        <button className={activeTab === "console" ? "active" : ""} onClick={() => setActiveTab("console")}>
+          <span>02</span><strong>Query Console</strong><small>Live retrieval trace</small>
+        </button>
+        <button className={activeTab === "validator" ? "active" : ""} onClick={() => setActiveTab("validator")}>
+          <span>03</span><strong>Output Validator</strong><small>Grounding and gold</small>
+        </button>
       </div>
+      {activeTab === "evidence" && (
+        <>
+          <p className="recording-banner shell">{data.recordingNotice}</p>
+          <div className="lab-shell shell">
+            <QueryList selected={selected} onSelect={setSelected} />
+            <AnswerPanel query={selected} />
+          </div>
+        </>
+      )}
+      {activeTab === "console" && (
+        <div className="live-shell shell">
+          <LiveConsole
+            onTrace={setTrace}
+            onOpenValidator={() => setActiveTab("validator")}
+          />
+        </div>
+      )}
+      {activeTab === "validator" && (
+        <div className="live-shell shell">
+          <OutputValidator trace={trace} />
+        </div>
+      )}
     </section>
   );
 }
