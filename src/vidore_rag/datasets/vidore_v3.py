@@ -17,7 +17,7 @@ from vidore_rag.contracts import (
     JudgmentUnit,
     QueryRecord,
 )
-from vidore_rag.datasets.base import DatasetAdapter
+from vidore_rag.datasets.base import DatasetAdapter, DatasetDescriptor, PageAsset
 from vidore_rag.document_ir import PageRecord
 
 
@@ -47,6 +47,15 @@ class ViDoReV3Adapter(DatasetAdapter):
     @property
     def language(self) -> str:
         return self._language
+
+    @property
+    def descriptor(self) -> DatasetDescriptor:
+        return DatasetDescriptor(
+            dataset_id=self.DATASET_ID,
+            revision=self.REVISION,
+            split=self.SPLIT,
+            language=self.language,
+        )
 
     @classmethod
     def from_huggingface(cls, *, language: str = "english") -> ViDoReV3Adapter:
@@ -83,9 +92,14 @@ class ViDoReV3Adapter(DatasetAdapter):
         for row in self._corpus:
             yield self._page_from_row(row)
 
-    def iter_page_assets(self) -> Iterable[tuple[PageRecord, Any]]:
+    def iter_page_assets(self) -> Iterable[PageAsset]:
         for row in self._corpus:
-            yield self._page_from_row(row), row.get("image")
+            native_page_id = int(row["corpus_id"])
+            yield PageAsset(
+                source_key=f"{native_page_id:06d}",
+                page=self._page_from_row(row),
+                image=row.get("image"),
+            )
 
     def iter_queries(self) -> Iterable[QueryRecord]:
         for row in self._queries:

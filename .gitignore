@@ -1,4 +1,5 @@
 .artifacts/
+.DS_Store
 *.md
 !README.md
 .mypy_cache/

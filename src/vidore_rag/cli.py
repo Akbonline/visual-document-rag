@@ -10,10 +10,10 @@ from pydantic import BaseModel
 from vidore_rag.chunking import FixedTokenChunker
 from vidore_rag.config import inspect_dataset_config
 from vidore_rag.context import ContextBuilder
-from vidore_rag.datasets import ViDoReV3Adapter
+from vidore_rag.datasets import build_default_registry
 from vidore_rag.document_ir import PageRecord
 from vidore_rag.evaluation import BenchmarkSession
-from vidore_rag.ingestion import materialize_vidore
+from vidore_rag.ingestion import materialize_dataset as materialize_source
 from vidore_rag.ingestion.fingerprints import stage_fingerprint
 from vidore_rag.ocr import TesseractEngine, compare_ocr_to_source, run_cached_ocr
 from vidore_rag.retrieval import (
@@ -38,13 +38,17 @@ app.add_typer(index_app, name="index")
 app.add_typer(benchmark_app, name="benchmark")
 
 ARTIFACT_ROOT = Path(".artifacts/vidore_v3_hr")
+DEFAULT_DATASET_CONFIG = Path("configs/datasets/vidore_v3.yaml")
+DATASET_REGISTRY = build_default_registry()
 
 
 @dataset_app.command("inspect")
 def inspect_dataset(
     config: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
 ) -> None:
-    inspection = inspect_dataset_config(config)
+    inspection = inspect_dataset_config(
+        config, available_adapters=DATASET_REGISTRY.names()
+    )
     typer.echo(json.dumps(inspection.model_dump(mode="json"), indent=2, sort_keys=True))
     if not inspection.ready:
         raise typer.Exit(code=2)
@@ -52,13 +56,28 @@ def inspect_dataset(
 
 @dataset_app.command("materialize")
 def materialize_dataset(
+    config: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)] = (
+        DEFAULT_DATASET_CONFIG
+    ),
+    adapter: Annotated[str | None, typer.Option()] = None,
     output: Annotated[Path, typer.Option()] = ARTIFACT_ROOT / "materialized",
     limit: Annotated[int | None, typer.Option(min=1)] = None,
 ) -> None:
-    """Materialize the frozen ViDoRe V3 HR corpus and canonical records."""
+    """Materialize any registered dataset through the shared adapter contract."""
 
-    adapter = ViDoReV3Adapter.from_huggingface()
-    result = materialize_vidore(adapter, output, limit=limit)
+    inspection = inspect_dataset_config(
+        config, available_adapters=DATASET_REGISTRY.names()
+    )
+    if not inspection.schema_valid or inspection.config is None:
+        raise typer.BadParameter("dataset configuration is not schema-valid")
+    adapter_name = adapter or inspection.config.dataset.adapter
+    if adapter_name not in DATASET_REGISTRY.names():
+        raise typer.BadParameter(
+            f"adapter {adapter_name!r} is not registered; "
+            f"available: {', '.join(DATASET_REGISTRY.names())}"
+        )
+    source = DATASET_REGISTRY.create(adapter_name, inspection.config)
+    result = materialize_source(source, output, limit=limit)
     _echo_model(result)
 
 
@@ -199,6 +218,9 @@ def index_dense(
 @benchmark_app.command("query")
 def benchmark_query(
     query_id: Annotated[int, typer.Option(min=0)],
+    dataset_config: Annotated[
+        Path, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = DEFAULT_DATASET_CONFIG,
     mode: Annotated[str, typer.Option()] = "bm25",
     text_index_manifest: Annotated[Path | None, typer.Option()] = None,
     dense_manifest: Annotated[Path | None, typer.Option()] = None,
@@ -207,7 +229,9 @@ def benchmark_query(
 ) -> None:
     """Run one shipped query and compare retrieved pages with gold pages."""
 
-    session = _benchmark_session(mode, text_index_manifest, dense_manifest)
+    session = _benchmark_session(
+        mode, text_index_manifest, dense_manifest, dataset_config
+    )
     result = session.query_by_native_id(query_id, limit=limit)
     payload = result.model_dump(mode="json")
     if context_budget is not None:
@@ -220,6 +244,9 @@ def benchmark_query(
 @benchmark_app.command("evaluate")
 def benchmark_evaluate(
     mode: Annotated[str, typer.Option()] = "bm25",
+    dataset_config: Annotated[
+        Path, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = DEFAULT_DATASET_CONFIG,
     text_index_manifest: Annotated[Path | None, typer.Option()] = None,
     dense_manifest: Annotated[Path | None, typer.Option()] = None,
     limit_queries: Annotated[int | None, typer.Option(min=1)] = None,
@@ -229,7 +256,9 @@ def benchmark_evaluate(
 ) -> None:
     """Evaluate a retriever over the selected English query slice."""
 
-    session = _benchmark_session(mode, text_index_manifest, dense_manifest)
+    session = _benchmark_session(
+        mode, text_index_manifest, dense_manifest, dataset_config
+    )
     report = session.evaluate(limit_queries=limit_queries, top_k=top_k)
     payload = report.model_dump(mode="json")
     if output is not None:
@@ -243,6 +272,7 @@ def _benchmark_session(
     mode: str,
     text_index_manifest: Path | None,
     dense_manifest: Path | None,
+    dataset_config: Path,
 ) -> BenchmarkSession:
     if mode not in {"bm25", "dense", "hybrid"}:
         raise typer.BadParameter("mode must be bm25, dense, or hybrid")
@@ -252,10 +282,16 @@ def _benchmark_session(
     resolved_dense = dense_manifest
     if mode in {"dense", "hybrid"} and resolved_dense is None:
         resolved_dense = _latest_manifest(ARTIFACT_ROOT / "dense_indexes")
+    inspection = inspect_dataset_config(
+        dataset_config, available_adapters=DATASET_REGISTRY.names()
+    )
+    if not inspection.schema_valid or inspection.config is None:
+        raise typer.BadParameter("dataset configuration is not schema-valid")
     return BenchmarkSession(
         text_manifest,
         mode=mode,  # type: ignore[arg-type]
         dense_manifest_path=resolved_dense,
+        capabilities=inspection.config.evaluation.capabilities,
     )
 
 

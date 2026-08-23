@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,8 @@ from vidore_rag.contracts import ProjectDatasetConfig
 
 class DatasetInspection(BaseModel):
     config_path: str
+    schema_valid: bool
+    adapter_registered: bool
     ready: bool
     unresolved_fields: list[str] = Field(default_factory=list)
     config: ProjectDatasetConfig | None = None
@@ -33,7 +36,9 @@ def _find_placeholders(value: Any, path: str = "") -> list[str]:
     return []
 
 
-def inspect_dataset_config(path: Path) -> DatasetInspection:
+def inspect_dataset_config(
+    path: Path, *, available_adapters: Collection[str] = ()
+) -> DatasetInspection:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("dataset configuration must be a YAML mapping")
@@ -42,10 +47,18 @@ def inspect_dataset_config(path: Path) -> DatasetInspection:
     if unresolved:
         return DatasetInspection(
             config_path=str(path),
+            schema_valid=False,
+            adapter_registered=False,
             ready=False,
             unresolved_fields=unresolved,
         )
 
     validated = ProjectDatasetConfig.model_validate(raw)
-    return DatasetInspection(config_path=str(path), ready=True, config=validated)
-
+    registered = validated.dataset.adapter in available_adapters
+    return DatasetInspection(
+        config_path=str(path),
+        schema_valid=True,
+        adapter_registered=registered,
+        ready=registered,
+        config=validated,
+    )

@@ -40,6 +40,9 @@ package-dir = { "" = "src" }
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+vidore_rag = ["py.typed"]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 pythonpath = ["src"]
@@ -55,4 +58,4 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-packages = ["vidore_rag"]
+files = ["src"]

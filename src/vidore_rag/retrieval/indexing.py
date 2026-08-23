@@ -7,6 +7,12 @@ from pydantic import BaseModel, Field
 
 from vidore_rag.artifacts import read_json, read_jsonl, write_json, write_jsonl
 from vidore_rag.chunking import FixedTokenChunker, StructureAwareChunker
+from vidore_rag.contracts import (
+    Aggregation,
+    JudgmentUnit,
+    RetrievalUnit,
+    UnitProjection,
+)
 from vidore_rag.document_ir import ChunkRecord, PageRecord
 from vidore_rag.ingestion.fingerprints import stage_fingerprint
 from vidore_rag.ingestion.materialize import (
@@ -31,6 +37,8 @@ class TextIndexManifest(BaseModel):
     overlap: int = Field(ge=0)
     page_count: int = Field(ge=1)
     chunk_count: int = Field(ge=1)
+    retrieval_unit: RetrievalUnit = RetrievalUnit.CHUNK
+    projection: UnitProjection | None = None
     chunks_path: str = "chunks.jsonl"
 
 
@@ -120,6 +128,7 @@ def build_text_index(
         overlap=overlap,
         page_count=len(pages),
         chunk_count=len(chunks),
+        projection=_projection_for(fingerprint, "chunks.jsonl"),
     )
     write_json(manifest_path, manifest.model_dump(mode="json"))
     return TextIndexResult(manifest_path=str(manifest_path), manifest=manifest, reused=False)
@@ -132,6 +141,30 @@ def load_chunks(manifest_path: Path) -> list[ChunkRecord]:
     if len(chunks) != manifest.chunk_count:
         raise ValueError("chunk artifact count does not match its manifest")
     return chunks
+
+
+def resolve_projection(manifest: TextIndexManifest) -> UnitProjection:
+    """Return the stored contract or a deterministic migration for V1 artifacts."""
+
+    return manifest.projection or _projection_for(
+        manifest.fingerprint, manifest.chunks_path
+    )
+
+
+def _projection_for(index_fingerprint: str, mapping_uri: str) -> UnitProjection:
+    fingerprint = stage_fingerprint(
+        stage_name="chunk_to_page_projection",
+        implementation_version="1",
+        config={"aggregation": Aggregation.BEST_RANK.value},
+        upstream_fingerprints=[index_fingerprint],
+    )
+    return UnitProjection(
+        source_unit=RetrievalUnit.CHUNK,
+        target_unit=JudgmentUnit.PAGE,
+        mapping_artifact_uri=mapping_uri,
+        aggregation=Aggregation.BEST_RANK,
+        projection_fingerprint=fingerprint,
+    )
 
 
 def _chunk_pages(

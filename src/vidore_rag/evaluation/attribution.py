@@ -14,19 +14,43 @@ class FailureClass(StrEnum):
     CITATION_FAILURE = "citation_failure"
 
 
+class AnswerabilityStatus(StrEnum):
+    LABELED_ANSWERABLE = "labeled_answerable"
+    LABELED_UNANSWERABLE = "labeled_unanswerable"
+    INFERRED_ANSWERABLE = "inferred_answerable"
+    UNKNOWN = "unknown"
+
+
+def resolve_answerability(
+    *,
+    is_answerable: bool | None,
+    has_answerability_label: bool,
+    has_reference_answer: bool,
+) -> AnswerabilityStatus:
+    if has_answerability_label:
+        if is_answerable is True:
+            return AnswerabilityStatus.LABELED_ANSWERABLE
+        if is_answerable is False:
+            return AnswerabilityStatus.LABELED_UNANSWERABLE
+        return AnswerabilityStatus.UNKNOWN
+    if has_reference_answer:
+        return AnswerabilityStatus.INFERRED_ANSWERABLE
+    return AnswerabilityStatus.UNKNOWN
+
+
 def classify_failure(
     *,
     gold_known: bool,
-    is_answerable: bool | None,
+    answerability: AnswerabilityStatus,
     system_refused: bool,
     retrieved_coverage: float,
     context_coverage: float,
     answer_correct: bool,
     citation_correct: bool,
 ) -> FailureClass:
-    if not gold_known or is_answerable is None:
+    if not gold_known or answerability is AnswerabilityStatus.UNKNOWN:
         return FailureClass.UNSCORABLE_GOLD
-    if not is_answerable:
+    if answerability is AnswerabilityStatus.LABELED_UNANSWERABLE:
         return (
             FailureClass.CORRECT_REFUSAL
             if system_refused

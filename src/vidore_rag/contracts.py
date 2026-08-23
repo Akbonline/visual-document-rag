@@ -84,7 +84,7 @@ class EvaluationCapabilities(BaseModel):
 
 
 class DatasetSelection(BaseModel):
-    adapter: Literal["vidore_v3", "synthetic"]
+    adapter: str = Field(min_length=1, pattern=r"^[a-z0-9][a-z0-9_-]*$")
     dataset_id: str = Field(min_length=1)
     revision: str = Field(min_length=1)
     split: str = Field(min_length=1)

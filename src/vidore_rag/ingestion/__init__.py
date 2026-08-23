@@ -3,7 +3,7 @@ from vidore_rag.ingestion.materialize import (
     MaterializationManifest,
     MaterializationResult,
     MaterializedPage,
-    materialize_vidore,
+    materialize_dataset,
     validate_materialization,
 )
 
@@ -11,6 +11,6 @@ __all__ = [
     "MaterializationManifest",
     "MaterializationResult",
     "MaterializedPage",
-    "materialize_vidore",
+    "materialize_dataset",
     "validate_materialization",
 ]

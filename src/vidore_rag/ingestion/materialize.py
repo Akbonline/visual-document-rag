@@ -7,8 +7,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from vidore_rag.artifacts import read_json, read_jsonl, sha256_file, write_json, write_jsonl
-from vidore_rag.contracts import JudgmentRecord, QueryRecord
-from vidore_rag.datasets.vidore_v3 import ViDoReV3Adapter
+from vidore_rag.contracts import EvaluationCapabilities, JudgmentRecord, QueryRecord
+from vidore_rag.datasets.base import DatasetAdapter
 from vidore_rag.document_ir import PageRecord
 from vidore_rag.ingestion.fingerprints import stage_fingerprint
 
@@ -31,6 +31,7 @@ class MaterializationManifest(BaseModel):
     query_count: int = Field(ge=0)
     judgment_count: int = Field(ge=0)
     invalid_bounding_box_count: int = Field(ge=0)
+    capabilities: EvaluationCapabilities | None = None
     pages_path: str
     queries_path: str
     judgments_path: str
@@ -42,20 +43,21 @@ class MaterializationResult(BaseModel):
     reused: bool
 
 
-def materialize_vidore(
-    adapter: ViDoReV3Adapter,
+def materialize_dataset(
+    adapter: DatasetAdapter,
     output_dir: Path,
     *,
     limit: int | None = None,
 ) -> MaterializationResult:
+    descriptor = adapter.descriptor
     fingerprint = stage_fingerprint(
         stage_name="materialize",
         implementation_version="2",
         config={
-            "dataset_id": adapter.DATASET_ID,
-            "revision": adapter.REVISION,
-            "split": adapter.SPLIT,
-            "language": adapter.language,
+            "dataset_id": descriptor.dataset_id,
+            "revision": descriptor.revision,
+            "split": descriptor.split,
+            "language": descriptor.language,
             "image_encoding": "jpeg-source-or-quality-95",
             "limit": limit,
         },
@@ -76,12 +78,12 @@ def materialize_vidore(
     image_dir.mkdir(parents=True, exist_ok=True)
 
     pages: list[MaterializedPage] = []
-    for index, (page, image) in enumerate(adapter.iter_page_assets()):
+    for index, asset in enumerate(adapter.iter_page_assets()):
         if limit is not None and index >= limit:
             break
-        image_path = image_dir / f"{int(page.metadata['native_corpus_id']):06d}.jpg"
-        _write_image(image, image_path)
-        materialized_page = page.model_copy(update={"image_uri": str(image_path)})
+        image_path = image_dir / f"{asset.source_key}.jpg"
+        _write_image(asset.image, image_path)
+        materialized_page = asset.page.model_copy(update={"image_uri": str(image_path)})
         pages.append(
             MaterializedPage(
                 page=materialized_page,
@@ -111,10 +113,10 @@ def materialize_vidore(
     )
 
     manifest = MaterializationManifest(
-        dataset_id=adapter.DATASET_ID,
-        revision=adapter.REVISION,
-        split=adapter.SPLIT,
-        language=adapter.language,
+        dataset_id=descriptor.dataset_id,
+        revision=descriptor.revision,
+        split=descriptor.split,
+        language=descriptor.language,
         fingerprint=fingerprint,
         page_count=len(pages),
         query_count=len(queries),
@@ -122,6 +124,7 @@ def materialize_vidore(
         invalid_bounding_box_count=sum(
             judgment.invalid_bounding_box_count for judgment in judgments
         ),
+        capabilities=adapter.capabilities(),
         pages_path=pages_path.name,
         queries_path=queries_path.name,
         judgments_path=judgments_path.name,

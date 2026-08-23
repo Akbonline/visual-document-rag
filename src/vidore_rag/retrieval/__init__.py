@@ -10,6 +10,7 @@ from vidore_rag.retrieval.indexing import (
     TextIndexManifest,
     build_text_index,
     load_chunks,
+    resolve_projection,
 )
 from vidore_rag.retrieval.projection import project_chunks_to_pages
 from vidore_rag.retrieval.sparse import BM25Index
@@ -24,6 +25,7 @@ __all__ = [
     "build_text_index",
     "load_chunks",
     "load_dense_index",
+    "resolve_projection",
     "project_chunks_to_pages",
     "reciprocal_rank_fusion",
 ]

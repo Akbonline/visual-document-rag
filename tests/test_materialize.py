@@ -6,7 +6,7 @@ from vidore_rag.ingestion.materialize import (
     load_judgments,
     load_materialized_pages,
     load_queries,
-    materialize_vidore,
+    materialize_dataset,
 )
 
 
@@ -48,8 +48,8 @@ def test_materialization_is_validated_and_reused(tmp_path: Path) -> None:
         ],
     )
 
-    first = materialize_vidore(adapter, tmp_path)
-    second = materialize_vidore(adapter, tmp_path)
+    first = materialize_dataset(adapter, tmp_path)
+    second = materialize_dataset(adapter, tmp_path)
 
     assert not first.reused
     assert second.reused

@@ -1,6 +1,6 @@
 # ViDoRe RAG Beta
 
-> A measurable visual document retrieval prototype built to answer one question honestly: when an answer is wrong, which stage failed?
+> A measurable visual document retrieval prototype with explicit contracts for separating retrieval, context, and future generation failures.
 
 <div align="center">
 
@@ -18,11 +18,11 @@
 | Canonical pages and chunks | ✅ | Every chunk retains document and page provenance |
 | Deterministic text chunking | ✅ | Identical input creates identical chunk identities |
 | Sparse retrieval with BM25 | ✅ | The example query finds the correct evidence page |
-| Chunk to page projection | ✅ | Retrieval output matches page level judgments |
-| Reciprocal Rank Fusion | ✅ | Ready to combine sparse and dense rankings |
+| Chunk to page projection | ✅ | A validated, fingerprinted projection contract precedes evaluation |
+| Reciprocal Rank Fusion | ✅ | Sparse and dense page rankings are combined without score calibration |
 | Artifact fingerprints | ✅ | Configuration and model revisions affect identity |
-| Failure attribution | ✅ | Retrieval and generation failures remain distinct |
-| Automated verification | ✅ | CMake, CTest, Ruff, mypy, CI, and 29 tests |
+| Failure attribution contract | ◇ | Tested classifier exists; generation pipeline wiring remains Beta 4 work |
+| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 41 portable tests, and 2 real-artifact regressions |
 | ViDoRe V3 HR adapter | ✅ | Frozen revision, English queries, graded page qrels, answers, and pixel boxes |
 | Cached OCR ingestion | ✅ | 1,110 pages processed with zero failures and fingerprinted manifests |
 | Dense and hybrid retrieval | ✅ | Pinned MiniLM embeddings plus page level Reciprocal Rank Fusion |
@@ -39,7 +39,7 @@ source .venv/bin/activate
 python -m pip install -e '.[dev,prototype]'
 ```
 
-Run the synthetic retrieval journey:
+Run the deterministic contract smoke test. This fixture is not used for benchmark claims:
 
 ```bash
 PYTHONPATH=src python -m vidore_rag demo retrieve \
@@ -167,6 +167,8 @@ Every row uses the same 318 English queries, page-level graded judgments, `top_k
 
 RRF improves nDCG@10 by 6.8% and Recall@10 by 8.8% relative to the strongest single retriever. The first structure-aware heuristic does not beat fixed chunks, which is a useful failure result: preserving block boundaries alone is insufficient without better layout recovery and query-aware table handling.
 
+[MiniLM](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) is intentionally a low-cost dense baseline, not evidence that dense retrieval generally underperforms sparse retrieval. It produces 384-dimensional embeddings, has six transformer layers, and truncates inputs beyond 256 word pieces. The [official ViDoRe V3 monolingual table](https://arxiv.org/html/2601.08620v2) reports HR BM25S nDCG@10 of `0.496`; this implementation's English-only `0.4865` is directionally consistent despite different BM25 and chunking details.
+
 The OCR diagnostic compared token overlap with shipped markdown across all pages: precision `0.8564`, recall `0.9461`, and F1 `0.8990`. This is a consistency signal, not a formal OCR ground-truth score.
 
 ## ◇ The honesty boundary
@@ -178,12 +180,12 @@ PYTHONPATH=src python -m vidore_rag dataset inspect \
   --config configs/datasets/vidore_v3.yaml
 ```
 
-The command exits successfully and prints the frozen capabilities. The English slice contains 318 populated free text answers and graded page judgments with pixel bounding boxes. The data does not explicitly declare whether multiple relevant pages are alternatives or jointly required, so that semantic remains `unknown` and the system will not fabricate multi hop attribution from it.
+The command exits successfully only when the configuration is schema-valid and its adapter is registered. It prints those states separately; source availability is ultimately verified during materialization. The English slice contains 318 populated free text answers and graded page judgments with pixel bounding boxes. The data does not explicitly declare whether multiple relevant pages are alternatives or jointly required, so that semantic remains `unknown` and the system will not fabricate multi hop attribution from it.
 
 <details>
 <summary><strong>Why retrieval units and judgment units are separate</strong></summary>
 
-A retriever may search chunks while a benchmark labels pages. Scoring chunk identifiers directly against page identifiers creates meaningless metrics. This project requires an explicit, fingerprinted projection between those units before evaluation can run.
+A retriever may search chunks while a benchmark labels pages. Scoring chunk identifiers directly against page identifiers creates meaningless metrics. Each index now carries a chunk-to-page mapping contract and projection fingerprint; the benchmark validates that contract against the dataset's declared judgment unit before evaluation.
 
 </details>
 
@@ -214,7 +216,7 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | Sparse, dense, and RRF comparison | Learned reranking |
 | Fixed and structure aware context | Full native Office fidelity |
 | Local Python application | Distributed services and Kubernetes |
-| Measured latency, tokens, and cost | Production deployment and autoscaling |
+| Measured retrieval quality and latency | Generation tokens, cost, TTR, production deployment, and autoscaling |
 
 ## → Next move
 
