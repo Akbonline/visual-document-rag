@@ -20,11 +20,10 @@ class PageRecord(BaseModel):
 
     @model_validator(mode="after")
     def validate_geometry(self) -> PageRecord:
-        geometry = (self.width, self.height, self.dpi)
-        if any(value is not None for value in geometry) and not all(
-            value is not None for value in geometry
-        ):
-            raise ValueError("width, height, and dpi must be declared together")
+        if (self.width is None) != (self.height is None):
+            raise ValueError("width and height must be declared together")
+        if self.dpi is not None and self.width is None:
+            raise ValueError("dpi requires declared width and height")
         return self
 
 

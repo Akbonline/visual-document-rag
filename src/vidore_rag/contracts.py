@@ -88,6 +88,7 @@ class DatasetSelection(BaseModel):
     dataset_id: str = Field(min_length=1)
     revision: str = Field(min_length=1)
     split: str = Field(min_length=1)
+    query_language: str | None = None
     max_pages: int = Field(ge=1, le=2000)
     deterministic_seed: int
     license_id: str = Field(min_length=1)
@@ -128,12 +129,30 @@ class QueryRecord(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class BoundingBoxEvidence(BaseModel):
+    coordinate_space: Literal["pixel"] = "pixel"
+    x1: int = Field(ge=0)
+    y1: int = Field(ge=0)
+    x2: int = Field(gt=0)
+    y2: int = Field(gt=0)
+    annotator: int | None = None
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> Self:
+        if self.x2 <= self.x1 or self.y2 <= self.y1:
+            raise ValueError("bounding box maximums must exceed minimums")
+        return self
+
+
 class JudgmentRecord(BaseModel):
     judgment_id: str = Field(min_length=1)
     query_id: str = Field(min_length=1)
     target_id: str = Field(min_length=1)
     judgment_unit: JudgmentUnit
     relevance: float
+    content_types: list[str] = Field(default_factory=list)
+    bounding_boxes: list[BoundingBoxEvidence] = Field(default_factory=list)
+    invalid_bounding_box_count: int = Field(default=0, ge=0)
 
 
 class IndexManifest(BaseModel):

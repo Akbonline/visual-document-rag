@@ -1,12 +1,13 @@
 dataset:
   adapter: vidore_v3
-  dataset_id: __PENDING_V3_RESEARCH__
-  revision: __PENDING_V3_RESEARCH__
-  split: __PENDING_V3_RESEARCH__
-  max_pages: 2000
+  dataset_id: vidore/vidore_v3_hr
+  revision: 0cdf0979f2c5a0fd3e335e6373b9da48a9fe3bc3
+  split: test
+  query_language: english
+  max_pages: 1110
   deterministic_seed: 42
-  license_id: __PENDING_V3_RESEARCH__
-  gated: __PENDING_V3_RESEARCH__
+  license_id: cc-by-4.0
+  gated: false
 
 evaluation:
   common_unit: page
@@ -15,13 +16,12 @@ evaluation:
   refuse_unknown_gold_semantics: true
   capabilities:
     judgment_unit: page
-    judgment_cardinality: __PENDING_V3_RESEARCH__
-    judgment_scale: __PENDING_V3_RESEARCH__
-    relevance_grades: [__PENDING_V3_RESEARCH__]
-    binary_relevance_threshold: __PENDING_V3_RESEARCH__
-    judgment_structure: __PENDING_V3_RESEARCH__
-    has_reference_answers: __PENDING_V3_RESEARCH__
-    answer_format: __PENDING_V3_RESEARCH__
-    has_answerability_label: __PENDING_V3_RESEARCH__
-    has_bounding_box_evidence: __PENDING_V3_RESEARCH__
-
+    judgment_cardinality: variable
+    judgment_scale: graded
+    relevance_grades: [0, 1, 2]
+    binary_relevance_threshold: 1
+    judgment_structure: unknown
+    has_reference_answers: true
+    answer_format: free_text
+    has_answerability_label: false
+    has_bounding_box_evidence: true

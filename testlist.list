@@ -8,3 +8,4 @@ tests/test_contracts.py
 tests/test_document_ir.py
 tests/test_fingerprints.py
 tests/test_retrieval.py
+tests/test_vidore_v3_adapter.py

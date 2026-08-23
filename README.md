@@ -22,8 +22,9 @@
 | Reciprocal Rank Fusion | ✅ | Ready to combine sparse and dense rankings |
 | Artifact fingerprints | ✅ | Configuration and model revisions affect identity |
 | Failure attribution | ✅ | Retrieval and generation failures remain distinct |
-| Automated verification | ✅ | CMake, CTest, Ruff, mypy, CI, and 15 tests |
-| ViDoRe V3 ingestion and measured results | ◌ | Waiting on verified shipped dataset semantics |
+| Automated verification | ✅ | CMake, CTest, Ruff, mypy, CI, and 19 tests |
+| ViDoRe V3 HR adapter | ✅ | Frozen revision, English queries, graded page qrels, answers, and pixel boxes |
+| ViDoRe V3 OCR and measured results | ◌ | Adapter exists; corpus materialization and OCR are next |
 
 ## ◈ See it work
 
@@ -108,14 +109,14 @@ Each manifest entry becomes its own CTest test. Configuration fails if a listed 
 
 ## ◇ The honesty boundary
 
-The real ViDoRe V3 configuration intentionally contains unresolved fields. Inspect it with:
+The selected contract is `vidore/vidore_v3_hr` at revision `0cdf0979f2c5a0fd3e335e6373b9da48a9fe3bc3`. Inspect it with:
 
 ```bash
 PYTHONPATH=src python -m vidore_rag dataset inspect \
   --config configs/datasets/vidore_v3.yaml
 ```
 
-The command exits with status `2` and reports every missing fact. This is deliberate. The system will not invent answer availability, relevance semantics, licenses, bounding boxes, or benchmark results.
+The command exits successfully and prints the frozen capabilities. The English slice contains 318 populated free text answers and graded page judgments with pixel bounding boxes. The data does not explicitly declare whether multiple relevant pages are alternatives or jointly required, so that semantic remains `unknown` and the system will not fabricate multi hop attribution from it.
 
 <details>
 <summary><strong>Why retrieval units and judgment units are separate</strong></summary>
@@ -136,7 +137,7 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | Stage | Deliverable | State |
 |:--:|:--|:--:|
 | 0 | Contracts, fingerprints, CLI, CI, and synthetic sparse slice | ✅ |
-| 1 | Verified ViDoRe adapter, OCR, caching, and official retrieval evaluation | Next |
+| 1 | Verified ViDoRe adapter, OCR, caching, and official retrieval evaluation | Adapter complete; OCR next |
 | 2 | Dense retrieval plus measured RRF comparison | Planned |
 | 3 | Fixed context versus structure aware context experiment | Planned |
 | 4 | Retrieved context versus oracle context generation | Planned |
@@ -155,4 +156,4 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 
 ## → Next move
 
-Verify one ViDoRe V3 dataset directly from its shipped schema, freeze a deterministic slice, and implement the adapter plus OCR ingestion. Until that gate closes, the synthetic path proves system plumbing but makes no benchmark claim.
+Materialize the frozen ViDoRe V3 HR corpus, run OCR with cache fingerprints, and compare OCR text with shipped markdown before building the first measured sparse retrieval baseline.
