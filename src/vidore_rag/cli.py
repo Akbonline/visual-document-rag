@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 from pydantic import BaseModel
 
+from vidore_rag.artifacts import read_json
 from vidore_rag.chunking import FixedTokenChunker
 from vidore_rag.config import inspect_dataset_config
 from vidore_rag.context import ContextBuilder
@@ -24,6 +25,8 @@ from vidore_rag.ingestion.fingerprints import stage_fingerprint
 from vidore_rag.ocr import TesseractEngine, compare_ocr_to_source, run_cached_ocr
 from vidore_rag.retrieval import (
     BM25Index,
+    DenseIndexManifest,
+    TextIndexManifest,
     build_dense_index,
     build_text_index,
     project_chunks_to_pages,
@@ -354,12 +357,9 @@ def _benchmark_session(
 ) -> BenchmarkSession:
     if mode not in {"bm25", "dense", "hybrid"}:
         raise typer.BadParameter("mode must be bm25, dense, or hybrid")
-    text_manifest = text_index_manifest or _latest_manifest(
-        ARTIFACT_ROOT / "text_indexes"
+    text_manifest, resolved_dense = _resolve_index_manifests(
+        mode, text_index_manifest, dense_manifest
     )
-    resolved_dense = dense_manifest
-    if mode in {"dense", "hybrid"} and resolved_dense is None:
-        resolved_dense = _latest_manifest(ARTIFACT_ROOT / "dense_indexes")
     inspection = inspect_dataset_config(
         dataset_config, available_adapters=DATASET_REGISTRY.names()
     )
@@ -373,11 +373,79 @@ def _benchmark_session(
     )
 
 
+def _resolve_index_manifests(
+    mode: str,
+    text_index_manifest: Path | None,
+    dense_manifest: Path | None,
+) -> tuple[Path, Path | None]:
+    text_root = ARTIFACT_ROOT / "text_indexes"
+    dense_root = ARTIFACT_ROOT / "dense_indexes"
+    if mode == "bm25":
+        return text_index_manifest or _latest_manifest(text_root), None
+
+    resolved_dense = dense_manifest
+    resolved_text = text_index_manifest
+    if resolved_dense is None and resolved_text is None:
+        resolved_dense = _latest_manifest(dense_root)
+
+    if resolved_dense is not None:
+        dense_contract = DenseIndexManifest.model_validate(read_json(resolved_dense))
+        if resolved_text is None:
+            recorded_text_path = Path(dense_contract.text_index_manifest_path)
+            resolved_text = (
+                recorded_text_path
+                if recorded_text_path.is_file()
+                else _find_text_manifest(dense_contract.text_index_fingerprint, text_root)
+            )
+    else:
+        assert resolved_text is not None
+        text_contract = TextIndexManifest.model_validate(read_json(resolved_text))
+        resolved_dense = _find_dense_manifest(text_contract.fingerprint, dense_root)
+        dense_contract = DenseIndexManifest.model_validate(read_json(resolved_dense))
+
+    assert resolved_text is not None and resolved_dense is not None
+    text_contract = TextIndexManifest.model_validate(read_json(resolved_text))
+    if dense_contract.text_index_fingerprint != text_contract.fingerprint:
+        raise typer.BadParameter(
+            "dense and text index fingerprints do not match; pass a compatible "
+            "--text-index-manifest and --dense-manifest pair"
+        )
+    return resolved_text, resolved_dense
+
+
+def _find_text_manifest(fingerprint: str, root: Path) -> Path:
+    for path in _manifests_newest_first(root):
+        manifest = TextIndexManifest.model_validate(read_json(path))
+        if manifest.fingerprint == fingerprint:
+            return path
+    raise typer.BadParameter(
+        f"no text index matches dense index fingerprint {fingerprint} under {root}"
+    )
+
+
+def _find_dense_manifest(text_fingerprint: str, root: Path) -> Path:
+    for path in _manifests_newest_first(root):
+        manifest = DenseIndexManifest.model_validate(read_json(path))
+        if manifest.text_index_fingerprint == text_fingerprint:
+            return path
+    raise typer.BadParameter(
+        f"no dense index matches text index fingerprint {text_fingerprint} under {root}"
+    )
+
+
+def _manifests_newest_first(root: Path) -> list[Path]:
+    return sorted(
+        root.glob("*/manifest.json"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+
 def _latest_manifest(root: Path) -> Path:
-    manifests = sorted(root.glob("*/manifest.json"), key=lambda path: path.stat().st_mtime)
+    manifests = _manifests_newest_first(root)
     if not manifests:
         raise typer.BadParameter(f"no artifact manifest found under {root}")
-    return manifests[-1]
+    return manifests[0]
 
 
 def _echo_model(model: BaseModel) -> None:

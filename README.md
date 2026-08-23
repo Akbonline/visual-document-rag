@@ -22,7 +22,7 @@
 | Reciprocal Rank Fusion | ✅ | Sparse and dense page rankings are combined without score calibration |
 | Artifact fingerprints | ✅ | Configuration and model revisions affect identity |
 | Failure attribution | ◇ | Retrieval, context, generation, citation, and latency classification is wired; live-provider validation remains |
-| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 46 portable tests, and 2 real-artifact regressions |
+| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 47 portable tests, and 2 real-artifact regressions |
 | ViDoRe V3 HR adapter | ✅ | Frozen revision, English queries, graded page qrels, answers, and pixel boxes |
 | Cached OCR ingestion | ✅ | 1,110 pages processed with zero failures and fingerprinted manifests |
 | Dense and hybrid retrieval | ✅ | Pinned MiniLM embeddings plus page level Reciprocal Rank Fusion |
