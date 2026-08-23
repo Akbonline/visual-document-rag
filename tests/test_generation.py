@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -193,6 +194,28 @@ def test_provider_requires_api_key_without_leaking_a_secret(
         OpenAIResponsesProvider(config)
 
     assert "sk-" not in str(raised.value)
+
+
+def test_openai_provider_reports_output_budget_truncation_clearly() -> None:
+    provider = object.__new__(OpenAIResponsesProvider)
+    provider._config = ProviderConfig(provider="openai", model="gpt-5.4-mini")
+    provider._client = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: SimpleNamespace(
+                status="incomplete",
+                incomplete_details=SimpleNamespace(reason="max_output_tokens"),
+            )
+        )
+    )
+    request = ProviderRequest(
+        instructions="Use the evidence.",
+        prompt="Question and evidence",
+        max_output_tokens=256,
+        output_schema=GeneratedAnswer.model_json_schema(),
+    )
+
+    with pytest.raises(RuntimeError, match="truncated at max_output_tokens=256"):
+        provider.generate(request)
 
 
 def test_generation_experiment_resumes_completed_query_files(tmp_path: Path) -> None:

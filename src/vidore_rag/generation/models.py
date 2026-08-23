@@ -18,7 +18,7 @@ class ProviderConfig(BaseModel):
     base_url: str | None = None
     timeout_seconds: float = Field(default=60, gt=0, le=600)
     max_retries: int = Field(default=3, ge=0, le=10)
-    max_output_tokens: int = Field(default=256, ge=16, le=4096)
+    max_output_tokens: int = Field(default=1024, ge=16, le=4096)
     input_cost_per_million: float | None = Field(default=None, ge=0)
     cached_input_cost_per_million: float | None = Field(default=None, ge=0)
     output_cost_per_million: float | None = Field(default=None, ge=0)

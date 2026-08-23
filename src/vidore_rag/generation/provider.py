@@ -88,6 +88,18 @@ class OpenAIResponsesProvider(LLMProvider):
             store=False,
         )
         latency_ms = (time.perf_counter() - started) * 1000
+        status = str(getattr(response, "status", "unknown"))
+        if status != "completed":
+            details = getattr(response, "incomplete_details", None)
+            reason = str(getattr(details, "reason", "unknown"))
+            if status == "incomplete" and reason == "max_output_tokens":
+                raise RuntimeError(
+                    "provider response was truncated at max_output_tokens="
+                    f"{request.max_output_tokens}; increase the configured output budget"
+                )
+            raise RuntimeError(
+                f"provider response did not complete (status={status}, reason={reason})"
+            )
         usage = response.usage
         if usage is None:
             raise RuntimeError("provider response did not include token usage")

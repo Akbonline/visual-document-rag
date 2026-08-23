@@ -4,7 +4,7 @@ provider:
   api_key_env: OPENAI_API_KEY
   timeout_seconds: 60
   max_retries: 3
-  max_output_tokens: 256
+  max_output_tokens: 1024
   input_cost_per_million: 0.75
   cached_input_cost_per_million: 0.075
   output_cost_per_million: 4.50
