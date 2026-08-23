@@ -1,10 +1,10 @@
 # ViDoRe RAG Beta
 
-> A measurable visual document retrieval prototype with explicit contracts for separating retrieval, context, and future generation failures.
+> A measurable visual document RAG prototype with paired retrieved and oracle generation, explicit evidence contracts, and honest failure attribution.
 
 <div align="center">
 
-`Rendered pages` → `Canonical records` → `Chunks` → `Retrieval` → `Page evidence` → `Evaluation`
+`Rendered pages` → `Canonical records` → `Retrieval` → `Evidence` → `Generation` → `Evaluation`
 
 **Local first · Reproducible · Evaluation aware · Fail closed**
 
@@ -21,13 +21,14 @@
 | Chunk to page projection | ✅ | A validated, fingerprinted projection contract precedes evaluation |
 | Reciprocal Rank Fusion | ✅ | Sparse and dense page rankings are combined without score calibration |
 | Artifact fingerprints | ✅ | Configuration and model revisions affect identity |
-| Failure attribution contract | ◇ | Tested classifier exists; generation pipeline wiring remains Beta 4 work |
-| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 41 portable tests, and 2 real-artifact regressions |
+| Failure attribution | ◇ | Retrieval, context, generation, citation, and latency classification is wired; live-provider validation remains |
+| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 46 portable tests, and 2 real-artifact regressions |
 | ViDoRe V3 HR adapter | ✅ | Frozen revision, English queries, graded page qrels, answers, and pixel boxes |
 | Cached OCR ingestion | ✅ | 1,110 pages processed with zero failures and fingerprinted manifests |
 | Dense and hybrid retrieval | ✅ | Pinned MiniLM embeddings plus page level Reciprocal Rank Fusion |
 | Structure aware context | ✅ | Headings, tables, figures, citations, and fixed token budgets |
 | Real benchmark results | ✅ | All 318 English queries evaluated across five controlled runs |
+| Paired RAG generation | ◇ | Retrieved and oracle paths, structured answers, cost, tokens, TTR, citations, and resumable jobs are implemented; live results remain |
 
 ## ◈ See it work
 
@@ -36,7 +37,7 @@ Python 3.11 or newer is required.
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[dev,prototype]'
+python -m pip install -e '.[dev,prototype,generation]'
 ```
 
 Run the deterministic contract smoke test. This fixture is not used for benchmark claims:
@@ -100,10 +101,16 @@ Each manifest entry becomes its own CTest test. Configuration fails if a listed 
 
   question ──→ BM25 + dense retrieval ──→ page projection ──→ RRF
                                                                   │
-                                      ┌───────────────────────────┴──────────┐
-                                      ▼                                      ▼
-                         token-budgeted evidence                    retrieval metrics
-                         with page citations                  Recall / MRR / nDCG / latency
+                                      ▼
+                         token-budgeted evidence ────────────────┐
+                                      │                          │
+                                      ▼                          ▼
+                              retrieved answer             oracle answer
+                                      │                          │
+                                      └────────────┬─────────────┘
+                                                   ▼
+                                      answer / citation / cost / TTR
+                                      first-failing-stage attribution
 ```
 
 | Boundary | Responsibility |
@@ -152,6 +159,34 @@ PYTHONPATH=src python -m vidore_rag benchmark evaluate \
   --output results/hybrid.json \
   --summary-only
 ```
+
+## ◌ Run paired generation
+
+The committed configuration contains only the environment-variable name, never a secret. Export your key in the current shell:
+
+```bash
+export OPENAI_API_KEY="your-key"
+```
+
+Run one real ViDoRe question through retrieved evidence and gold oracle evidence with identical prompts and budgets:
+
+```bash
+PYTHONPATH=src python -m vidore_rag generation query \
+  --query-id 0 \
+  --mode hybrid
+```
+
+Run a small resumable experiment before spending on all 318 queries:
+
+```bash
+PYTHONPATH=src python -m vidore_rag generation run \
+  --mode hybrid \
+  --limit-queries 5
+```
+
+Every completed query is written atomically to its own file. Repeating the command reuses valid completed results and retries unfinished queries. The experiment fingerprint includes the dataset, text index, dense index, projection, provider, model, prompt version, token budgets, scoring threshold, and selected query IDs.
+
+`configs/generation/openai.yaml` pins the current model and token prices. Update and commit that configuration whenever the provider changes pricing; cost is reported as an estimate derived from provider-reported usage.
 
 ## ✧ Measured results
 
@@ -203,8 +238,8 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | 0 | Contracts, fingerprints, CLI, CI, and synthetic sparse slice | ✅ |
 | 1 | Verified ViDoRe adapter, OCR, caching, and retrieval evaluation | ✅ |
 | 2 | Dense retrieval plus measured RRF comparison | ✅ |
-| 3 | Fixed context versus structure aware context experiment | Retrieval and context construction complete; generation pending |
-| 4 | Retrieved context versus oracle context generation | Planned |
+| 3 | Fixed context versus structure aware context experiment | Retrieval complete; live generation comparison pending |
+| 4 | Retrieved context versus oracle context generation | Implemented; live-provider run pending |
 | 5 | Results, failure analysis, one pager, and submission polish | Planned |
 
 ## ⊙ Scope boundary
@@ -216,8 +251,9 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | Sparse, dense, and RRF comparison | Learned reranking |
 | Fixed and structure aware context | Full native Office fidelity |
 | Local Python application | Distributed services and Kubernetes |
-| Measured retrieval quality and latency | Generation tokens, cost, TTR, production deployment, and autoscaling |
+| Measured retrieval quality and latency | Production deployment and autoscaling |
+| Paired generation engine and evaluation contracts | Published live generation measurements |
 
 ## → Next move
 
-Add retrieved-context and oracle-context answer generation, then score answer quality, citations, tokens, estimated cost, TTR, and first-failing-stage attribution. The V3 architecture remains broader than this intentionally tightened V3 Beta implementation.
+Run the first five-query live generation slice, inspect the outputs manually, then scale only after validating answer quality, citations, token cost, and latency. The V3 architecture remains broader than this intentionally tightened V3 Beta implementation.

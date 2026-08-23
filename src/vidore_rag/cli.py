@@ -13,6 +13,12 @@ from vidore_rag.context import ContextBuilder
 from vidore_rag.datasets import build_default_registry
 from vidore_rag.document_ir import PageRecord
 from vidore_rag.evaluation import BenchmarkSession
+from vidore_rag.generation import (
+    GenerationRunner,
+    build_provider,
+    load_generation_config,
+    run_generation_experiment,
+)
 from vidore_rag.ingestion import materialize_dataset as materialize_source
 from vidore_rag.ingestion.fingerprints import stage_fingerprint
 from vidore_rag.ocr import TesseractEngine, compare_ocr_to_source, run_cached_ocr
@@ -30,15 +36,20 @@ demo_app = typer.Typer(no_args_is_help=True, help="Run local dataset-independent
 ocr_app = typer.Typer(no_args_is_help=True, help="Run and inspect cached OCR")
 index_app = typer.Typer(no_args_is_help=True, help="Build sparse and dense indexes")
 benchmark_app = typer.Typer(no_args_is_help=True, help="Query and evaluate real datasets")
+generation_app = typer.Typer(
+    no_args_is_help=True, help="Run retrieved and oracle answer experiments"
+)
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(artifact_app, name="artifacts")
 app.add_typer(demo_app, name="demo")
 app.add_typer(ocr_app, name="ocr")
 app.add_typer(index_app, name="index")
 app.add_typer(benchmark_app, name="benchmark")
+app.add_typer(generation_app, name="generation")
 
 ARTIFACT_ROOT = Path(".artifacts/vidore_v3_hr")
 DEFAULT_DATASET_CONFIG = Path("configs/datasets/vidore_v3.yaml")
+DEFAULT_GENERATION_CONFIG = Path("configs/generation/openai.yaml")
 DATASET_REGISTRY = build_default_registry()
 
 
@@ -266,6 +277,73 @@ def benchmark_evaluate(
         output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     displayed = payload["aggregate"] if summary_only else payload
     typer.echo(json.dumps(displayed, indent=2, sort_keys=True))
+
+
+@generation_app.command("query")
+def generation_query(
+    query_id: Annotated[int, typer.Option(min=0)],
+    config: Annotated[
+        Path, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = DEFAULT_GENERATION_CONFIG,
+    dataset_config: Annotated[
+        Path, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = DEFAULT_DATASET_CONFIG,
+    mode: Annotated[str, typer.Option()] = "hybrid",
+    text_index_manifest: Annotated[Path | None, typer.Option()] = None,
+    dense_manifest: Annotated[Path | None, typer.Option()] = None,
+) -> None:
+    """Generate paired retrieved-context and oracle-context answers."""
+
+    generation_config = load_generation_config(config)
+    session = _benchmark_session(
+        mode, text_index_manifest, dense_manifest, dataset_config
+    )
+    try:
+        provider = build_provider(generation_config.provider)
+    except (RuntimeError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    result = GenerationRunner(session, provider, generation_config).run_pair(query_id)
+    _echo_model(result)
+
+
+@generation_app.command("run")
+def generation_run(
+    config: Annotated[
+        Path, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = DEFAULT_GENERATION_CONFIG,
+    dataset_config: Annotated[
+        Path, typer.Option(exists=True, dir_okay=False, readable=True)
+    ] = DEFAULT_DATASET_CONFIG,
+    mode: Annotated[str, typer.Option()] = "hybrid",
+    text_index_manifest: Annotated[Path | None, typer.Option()] = None,
+    dense_manifest: Annotated[Path | None, typer.Option()] = None,
+    output: Annotated[Path, typer.Option()] = ARTIFACT_ROOT / "generation",
+    limit_queries: Annotated[int | None, typer.Option(min=1)] = None,
+) -> None:
+    """Run a resumable paired generation experiment over the selected queries."""
+
+    generation_config = load_generation_config(config)
+    session = _benchmark_session(
+        mode, text_index_manifest, dense_manifest, dataset_config
+    )
+    try:
+        provider = build_provider(generation_config.provider)
+    except (RuntimeError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    query_ids = [int(query.metadata["native_query_id"]) for query in session.queries]
+    if limit_queries is not None:
+        query_ids = query_ids[:limit_queries]
+    runner = GenerationRunner(session, provider, generation_config)
+    manifest = run_generation_experiment(
+        runner,
+        provider,
+        generation_config,
+        output,
+        native_query_ids=query_ids,
+    )
+    payload = manifest.model_dump(mode="json")
+    payload["manifest_path"] = str(output / manifest.fingerprint / "manifest.json")
+    typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
 
 def _benchmark_session(

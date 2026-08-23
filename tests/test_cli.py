@@ -12,7 +12,15 @@ def test_cli_registers_all_public_command_groups() -> None:
     result = RUNNER.invoke(app, ["--help"])
 
     assert result.exit_code == 0
-    for command in ("dataset", "artifacts", "demo", "ocr", "index", "benchmark"):
+    for command in (
+        "dataset",
+        "artifacts",
+        "demo",
+        "ocr",
+        "index",
+        "benchmark",
+        "generation",
+    ):
         assert command in result.stdout
 
 

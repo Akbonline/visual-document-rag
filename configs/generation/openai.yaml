@@ -1,0 +1,18 @@
+provider:
+  provider: openai
+  model: gpt-5.4-mini
+  api_key_env: OPENAI_API_KEY
+  timeout_seconds: 60
+  max_retries: 3
+  max_output_tokens: 256
+  input_cost_per_million: 0.75
+  cached_input_cost_per_million: 0.075
+  output_cost_per_million: 4.50
+
+prompt_version: rag-cited-v1
+context_token_budget: 1200
+top_k: 10
+answer_token_f1_threshold: 0.80
+latency_budget_ms: 10000
+concurrency: 2
+requests_per_second: 2

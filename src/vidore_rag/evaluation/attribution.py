@@ -12,6 +12,7 @@ class FailureClass(StrEnum):
     CONTEXT_INCOMPLETE = "context_incomplete"
     GENERATION_FAILURE = "generation_failure"
     CITATION_FAILURE = "citation_failure"
+    PERFORMANCE_FAILURE = "performance_failure"
 
 
 class AnswerabilityStatus(StrEnum):
