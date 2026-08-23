@@ -57,6 +57,7 @@ class RecordingProvider(LLMProvider):
                 GeneratedCitation(
                     page_id=page_id,
                     quote="Stop charging",
+                    bounding_box=None,
                 )
             ],
         )
@@ -161,7 +162,9 @@ def test_localization_scores_predicted_boxes_against_real_pixel_gold() -> None:
             GeneratedCitation(
                 page_id=page_id,
                 quote="Stop charging",
-                bounding_box=PredictedBoundingBox(x1=10, y1=20, x2=200, y2=100),
+                bounding_box=PredictedBoundingBox(
+                    coordinate_space="pixel", x1=10, y1=20, x2=200, y2=100
+                ),
             )
         ],
     )
@@ -264,3 +267,13 @@ def test_generated_answer_schema_forbids_unexpected_provider_fields() -> None:
 
     with pytest.raises(ValueError):
         GeneratedAnswer.model_validate_json(json.dumps(payload))
+
+
+def test_generated_answer_schema_satisfies_strict_provider_requirements() -> None:
+    schema = GeneratedAnswer.model_json_schema()
+    citation_schema = schema["$defs"]["GeneratedCitation"]
+    box_schema = schema["$defs"]["PredictedBoundingBox"]
+
+    for object_schema in (schema, citation_schema, box_schema):
+        assert object_schema["additionalProperties"] is False
+        assert set(object_schema["required"]) == set(object_schema["properties"])

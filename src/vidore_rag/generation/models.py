@@ -37,7 +37,7 @@ class ProviderConfig(BaseModel):
 
 class GenerationConfig(BaseModel):
     provider: ProviderConfig
-    prompt_version: str = Field(default="rag-cited-v1", min_length=1)
+    prompt_version: str = Field(default="rag-cited-v2", min_length=1)
     context_token_budget: int = Field(default=1200, ge=64, le=100_000)
     top_k: int = Field(default=10, ge=1, le=100)
     answer_token_f1_threshold: float = Field(default=0.8, ge=0, le=1)
@@ -74,7 +74,7 @@ class ProviderResponse(BaseModel):
 class PredictedBoundingBox(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    coordinate_space: Literal["pixel"] = "pixel"
+    coordinate_space: Literal["pixel"]
     x1: int = Field(ge=0)
     y1: int = Field(ge=0)
     x2: int = Field(gt=0)
@@ -92,7 +92,7 @@ class GeneratedCitation(BaseModel):
 
     page_id: str = Field(min_length=1)
     quote: str = Field(min_length=1)
-    bounding_box: PredictedBoundingBox | None = None
+    bounding_box: PredictedBoundingBox | None
 
 
 class GeneratedAnswer(BaseModel):
