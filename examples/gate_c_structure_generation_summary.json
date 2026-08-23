@@ -1,0 +1,45 @@
+{
+  "attribution_policy": "multi-page queries with unknown AND/OR judgment semantics are reported as unscorable_gold",
+  "oracle": {
+    "cached_input_tokens": 30464,
+    "estimated_cost_usd": 0.03557279999999999,
+    "failure_counts": {
+      "generation_failure": 4,
+      "success": 1,
+      "unscorable_gold": 19
+    },
+    "input_tokens": 44152,
+    "mean_answer_token_f1": 0.5031450876453823,
+    "mean_gold_page_recall": 0.5271011335156072,
+    "mean_quote_support_precision": 0.75,
+    "mean_valid_context_precision": 1.0,
+    "n_queries": 24,
+    "output_tokens": 5116,
+    "refusal_count": 2,
+    "total_tokens": 49268,
+    "ttr_p50_ms": 1312.898603384383,
+    "ttr_p95_ms": 3159.291601751463
+  },
+  "query_count": 24,
+  "retrieved": {
+    "cached_input_tokens": 1792,
+    "estimated_cost_usd": 0.06202140000000002,
+    "failure_counts": {
+      "generation_failure": 3,
+      "retrieval_incomplete": 2,
+      "unscorable_gold": 19
+    },
+    "input_tokens": 55100,
+    "mean_answer_token_f1": 0.46416063867641033,
+    "mean_gold_page_recall": 0.2586231203007519,
+    "mean_quote_support_precision": 0.8200396825396825,
+    "mean_valid_context_precision": 1.0,
+    "n_queries": 24,
+    "output_tokens": 4868,
+    "refusal_count": 7,
+    "total_tokens": 59968,
+    "ttr_p50_ms": 1395.3071038704365,
+    "ttr_p95_ms": 3204.9284517415795
+  },
+  "total_estimated_cost_usd": 0.0975942
+}

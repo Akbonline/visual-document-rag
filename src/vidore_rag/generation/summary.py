@@ -48,6 +48,29 @@ class GenerationEvidenceBreakdown(BaseModel):
     rows: list[GenerationEvidenceRow]
 
 
+class PairedMetricComparison(BaseModel):
+    baseline_mean: float
+    candidate_mean: float
+    mean_delta: float
+    wins: int = Field(ge=0)
+    ties: int = Field(ge=0)
+    losses: int = Field(ge=0)
+
+
+class GenerationPolicyComparison(BaseModel):
+    query_count: int = Field(ge=1)
+    retrieved_context_changed_query_count: int = Field(ge=0)
+    oracle_prompt_match_count: int = Field(ge=0)
+    retrieved_answer_token_f1: PairedMetricComparison
+    oracle_answer_token_f1: PairedMetricComparison
+    noise_adjusted_answer_token_f1_delta: float
+    retrieved_gold_page_recall: PairedMetricComparison
+    retrieved_quote_support_precision: PairedMetricComparison
+    retrieved_ttr_ms: PairedMetricComparison
+    oracle_ttr_ms: PairedMetricComparison
+    interpretation: str
+
+
 def summarize_generation_experiment(
     results: list[GenerationPairResult],
     judgments: list[JudgmentRecord],
@@ -137,6 +160,88 @@ def assign_evidence_stratum(content_types: set[str]) -> str:
     if "text" in normalized:
         return "Text-only"
     return "Unknown"
+
+
+def compare_generation_policies(
+    baseline: list[GenerationPairResult],
+    candidate: list[GenerationPairResult],
+) -> GenerationPolicyComparison:
+    """Compare two generation runs over exactly the same query IDs."""
+
+    baseline_by_id = {pair.query_id: pair for pair in baseline}
+    candidate_by_id = {pair.query_id: pair for pair in candidate}
+    if not baseline_by_id or baseline_by_id.keys() != candidate_by_id.keys():
+        raise ValueError("generation comparisons require identical non-empty query sets")
+    ordered_ids = sorted(baseline_by_id)
+    baseline_pairs = [baseline_by_id[query_id] for query_id in ordered_ids]
+    candidate_pairs = [candidate_by_id[query_id] for query_id in ordered_ids]
+
+    retrieved_f1 = _compare_metric(
+        [pair.retrieved.answer_quality.token_f1 for pair in baseline_pairs],
+        [pair.retrieved.answer_quality.token_f1 for pair in candidate_pairs],
+    )
+    oracle_f1 = _compare_metric(
+        [pair.oracle.answer_quality.token_f1 for pair in baseline_pairs],
+        [pair.oracle.answer_quality.token_f1 for pair in candidate_pairs],
+    )
+    return GenerationPolicyComparison(
+        query_count=len(ordered_ids),
+        retrieved_context_changed_query_count=sum(
+            baseline_pair.retrieved.context_page_ids != candidate_pair.retrieved.context_page_ids
+            for baseline_pair, candidate_pair in zip(baseline_pairs, candidate_pairs, strict=True)
+        ),
+        oracle_prompt_match_count=sum(
+            baseline_pair.oracle.prompt_fingerprint == candidate_pair.oracle.prompt_fingerprint
+            for baseline_pair, candidate_pair in zip(baseline_pairs, candidate_pairs, strict=True)
+        ),
+        retrieved_answer_token_f1=retrieved_f1,
+        oracle_answer_token_f1=oracle_f1,
+        noise_adjusted_answer_token_f1_delta=(retrieved_f1.mean_delta - oracle_f1.mean_delta),
+        retrieved_gold_page_recall=_compare_metric(
+            [pair.retrieved.citation_quality.gold_page_recall for pair in baseline_pairs],
+            [pair.retrieved.citation_quality.gold_page_recall for pair in candidate_pairs],
+        ),
+        retrieved_quote_support_precision=_compare_metric(
+            [pair.retrieved.citation_quality.quote_support_precision for pair in baseline_pairs],
+            [pair.retrieved.citation_quality.quote_support_precision for pair in candidate_pairs],
+        ),
+        retrieved_ttr_ms=_compare_metric(
+            [pair.retrieved.time_to_response_ms for pair in baseline_pairs],
+            [pair.retrieved.time_to_response_ms for pair in candidate_pairs],
+            lower_is_better=True,
+        ),
+        oracle_ttr_ms=_compare_metric(
+            [pair.oracle.time_to_response_ms for pair in baseline_pairs],
+            [pair.oracle.time_to_response_ms for pair in candidate_pairs],
+            lower_is_better=True,
+        ),
+        interpretation=(
+            "The repeated oracle arm uses identical prompts and estimates run-to-run "
+            "model variance. The noise-adjusted F1 delta subtracts oracle drift from "
+            "the retrieved-arm delta; it is diagnostic, not a significance test."
+        ),
+    )
+
+
+def _compare_metric(
+    baseline: list[float],
+    candidate: list[float],
+    *,
+    lower_is_better: bool = False,
+) -> PairedMetricComparison:
+    if len(baseline) != len(candidate) or not baseline:
+        raise ValueError("paired metrics require equal non-empty samples")
+    deltas = [right - left for left, right in zip(baseline, candidate, strict=True)]
+    epsilon = 1e-12
+    better = [(-delta if lower_is_better else delta) for delta in deltas]
+    return PairedMetricComparison(
+        baseline_mean=statistics.fmean(baseline),
+        candidate_mean=statistics.fmean(candidate),
+        mean_delta=statistics.fmean(deltas),
+        wins=sum(value > epsilon for value in better),
+        ties=sum(abs(value) <= epsilon for value in better),
+        losses=sum(value < -epsilon for value in better),
+    )
 
 
 def _summarize_arm(

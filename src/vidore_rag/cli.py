@@ -19,8 +19,10 @@ from vidore_rag.evaluation import (
     group_retrieval_by_evidence_type,
 )
 from vidore_rag.generation import (
+    GenerationExperimentManifest,
     GenerationRunner,
     build_provider,
+    compare_generation_policies,
     load_generation_config,
     load_generation_results,
     load_generation_selection,
@@ -247,6 +249,33 @@ def benchmark_query(
         payload["context"] = (
             ContextBuilder(token_budget=context_budget).build(result.hits).model_dump(mode="json")
         )
+    typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+
+
+@generation_app.command("compare")
+def generation_compare(
+    baseline_manifest: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
+    candidate_manifest: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
+    output: Annotated[Path | None, typer.Option()] = None,
+) -> None:
+    """Compare two generation runs over the same query and model contract."""
+
+    baseline_contract = GenerationExperimentManifest.model_validate(read_json(baseline_manifest))
+    candidate_contract = GenerationExperimentManifest.model_validate(read_json(candidate_manifest))
+    if baseline_contract.dataset_fingerprint != candidate_contract.dataset_fingerprint:
+        raise typer.BadParameter("generation manifests use different datasets")
+    if baseline_contract.native_query_ids != candidate_contract.native_query_ids:
+        raise typer.BadParameter("generation manifests use different query selections")
+    if baseline_contract.config != candidate_contract.config:
+        raise typer.BadParameter("generation manifests use different generation configs")
+    comparison = compare_generation_policies(
+        load_generation_results(baseline_manifest),
+        load_generation_results(candidate_manifest),
+    )
+    payload = comparison.model_dump(mode="json")
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
 

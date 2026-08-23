@@ -238,6 +238,8 @@ Gate C also uses mutually exclusive evidence strata, six queries each. These sma
 
 Infographics produced the lowest answer F1 and slowest response in both arms. Their weak oracle result suggests that the next visual experiment must improve evidence interpretation and serialization, not merely page retrieval. Reproduce the table with `generation evidence-breakdown`; the machine-readable result is in `examples/gate_c_evidence_breakdown.json`.
 
+The fixed-versus-structure-aware experiment held the Gate C query set, hybrid retriever, model, prompt, and token budgets constant. Structure-aware context changed 22 of 24 retrieved bundles. Retrieved token F1 moved from `0.4518` to `0.4642` (`+0.0123`), but the repeated identical-prompt oracle control moved from `0.4884` to `0.5031` (`+0.0148`). Subtracting that run drift gives a diagnostic adjusted delta of `-0.0024`. Gold-page citation recall improved only `0.0091`, quote support was flat, and full-corpus retrieval was effectively unchanged (`0.5194 → 0.5206` nDCG@10; `0.5792 → 0.5766` Recall@10). The structure heuristic therefore does not earn promotion over fixed chunks. Its lower measured cost is not treated as an architecture gain because the second run received provider prompt-cache discounts. See `examples/gate_c_fixed_vs_structure_generation.json`.
+
 [MiniLM](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) is intentionally a low-cost dense baseline, not evidence that dense retrieval generally underperforms sparse retrieval. It produces 384-dimensional embeddings, has six transformer layers, and truncates inputs beyond 256 word pieces. The [official ViDoRe V3 monolingual table](https://arxiv.org/html/2601.08620v2) reports HR BM25S nDCG@10 of `0.496`; this implementation's English-only `0.4865` is directionally consistent despite different BM25 and chunking details.
 
 The OCR diagnostic compared token overlap with shipped markdown across all pages: precision `0.8564`, recall `0.9461`, and F1 `0.8990`. This is a consistency signal, not a formal OCR ground-truth score.
@@ -274,7 +276,7 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | 0 | Contracts, fingerprints, CLI, CI, and synthetic sparse slice | ✅ |
 | 1 | Verified ViDoRe adapter, OCR, caching, and retrieval evaluation | ✅ |
 | 2 | Dense retrieval plus measured RRF comparison | ✅ |
-| 3 | Fixed context versus structure aware context experiment | Retrieval complete; live generation comparison pending |
+| 3 | Fixed context versus structure aware context experiment | Complete; no demonstrated structure-aware gain |
 | 4 | Retrieved context versus oracle context generation | Gate C complete: 24 queries and 48 live calls |
 | 5 | Results, failure analysis, one pager, and submission polish | Planned |
 
@@ -292,4 +294,4 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 
 ## → Next move
 
-Finish the one-pager and failure analysis using the measured Gate C evidence. Keep the full 318-query paid run gated: Gate C is sufficient for a weekend diagnostic, and the next technically informative experiment is a targeted visual arm rather than more calls through the unchanged text-only pipeline.
+Finish the one-pager and failure analysis using the measured Gate C and chunk-policy evidence. Keep the full 318-query paid run gated: the next technically informative experiment is a targeted visual arm, not more calls through either unchanged text-only chunker.

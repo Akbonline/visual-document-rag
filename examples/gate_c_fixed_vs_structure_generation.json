@@ -1,0 +1,55 @@
+{
+  "interpretation": "The repeated oracle arm uses identical prompts and estimates run-to-run model variance. The noise-adjusted F1 delta subtracts oracle drift from the retrieved-arm delta; it is diagnostic, not a significance test.",
+  "noise_adjusted_answer_token_f1_delta": -0.002441025943557707,
+  "oracle_answer_token_f1": {
+    "baseline_mean": 0.4883856081136972,
+    "candidate_mean": 0.5031450876453823,
+    "losses": 9,
+    "mean_delta": 0.014759479531685124,
+    "ties": 3,
+    "wins": 12
+  },
+  "oracle_prompt_match_count": 24,
+  "oracle_ttr_ms": {
+    "baseline_mean": 1561.5809721445355,
+    "candidate_mean": 1643.3036631497089,
+    "losses": 13,
+    "mean_delta": 81.72269100517344,
+    "ties": 0,
+    "wins": 11
+  },
+  "query_count": 24,
+  "retrieved_answer_token_f1": {
+    "baseline_mean": 0.45184218508828294,
+    "candidate_mean": 0.46416063867641033,
+    "losses": 10,
+    "mean_delta": 0.012318453588127417,
+    "ties": 1,
+    "wins": 13
+  },
+  "retrieved_context_changed_query_count": 22,
+  "retrieved_gold_page_recall": {
+    "baseline_mean": 0.2494856934001671,
+    "candidate_mean": 0.2586231203007519,
+    "losses": 3,
+    "mean_delta": 0.009137426900584797,
+    "ties": 18,
+    "wins": 3
+  },
+  "retrieved_quote_support_precision": {
+    "baseline_mean": 0.8194444444444445,
+    "candidate_mean": 0.8200396825396825,
+    "losses": 4,
+    "mean_delta": 0.0005952380952380978,
+    "ties": 14,
+    "wins": 6
+  },
+  "retrieved_ttr_ms": {
+    "baseline_mean": 1788.875849005611,
+    "candidate_mean": 1716.9521873487004,
+    "losses": 10,
+    "mean_delta": -71.92366165691055,
+    "ties": 0,
+    "wins": 14
+  }
+}

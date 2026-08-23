@@ -25,6 +25,7 @@ from vidore_rag.generation import (
     ProviderRequest,
     ProviderResponse,
     TokenUsage,
+    compare_generation_policies,
     load_generation_results,
     resolve_recorded_failure,
     run_generation_experiment,
@@ -165,6 +166,11 @@ def test_retrieved_and_oracle_generation_use_the_shared_contract(tmp_path: Path)
     )
     assert [(row.evidence_type, row.n_queries) for row in breakdown.rows] == [("Text-only", 1)]
     assert breakdown.rows[0].retrieved.mean_answer_token_f1 == 1
+
+    comparison = compare_generation_policies([result], [result])
+    assert comparison.retrieved_context_changed_query_count == 0
+    assert comparison.oracle_prompt_match_count == 1
+    assert comparison.noise_adjusted_answer_token_f1_delta == 0
 
 
 def test_localization_scores_predicted_boxes_against_real_pixel_gold() -> None:
