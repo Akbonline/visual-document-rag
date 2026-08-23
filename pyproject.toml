@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vidore-rag-beta"
+version = "0.1.0"
+description = "A measurable visual-document RAG prototype for the Operation Autopilot design exercise"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Akshat Bajpai" }]
+dependencies = [
+  "pydantic>=2.7,<3",
+  "PyYAML>=6.0,<7",
+  "typer>=0.12,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.10,<2",
+  "pytest>=8.2,<9",
+  "ruff>=0.5,<1",
+  "types-PyYAML>=6.0,<7",
+]
+prototype = [
+  "datasets>=3,<5",
+  "faiss-cpu>=1.8,<2",
+  "pillow>=10,<13",
+  "pymupdf>=1.24,<2",
+  "sentence-transformers>=3,<6",
+]
+
+[project.scripts]
+vidore-rag = "vidore_rag.cli:app"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["vidore_rag"]

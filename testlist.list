@@ -1,0 +1,10 @@
+# One repository relative pytest file per line.
+# CMake validates every entry and registers each file as a separate CTest test.
+
+tests/test_attribution.py
+tests/test_chunking.py
+tests/test_config.py
+tests/test_contracts.py
+tests/test_document_ir.py
+tests/test_fingerprints.py
+tests/test_retrieval.py

@@ -1,0 +1,27 @@
+dataset:
+  adapter: synthetic
+  dataset_id: local/synthetic-docs
+  revision: fixture-v1
+  split: test
+  max_pages: 8
+  deterministic_seed: 42
+  license_id: CC0-1.0
+  gated: false
+
+evaluation:
+  common_unit: page
+  require_reference_answers_for_generation_metrics: true
+  refuse_unknown_projection: true
+  refuse_unknown_gold_semantics: true
+  capabilities:
+    judgment_unit: page
+    judgment_cardinality: variable
+    judgment_scale: graded
+    relevance_grades: [0, 1, 2]
+    binary_relevance_threshold: 1
+    judgment_structure: unknown
+    has_reference_answers: true
+    answer_format: free_text
+    has_answerability_label: true
+    has_bounding_box_evidence: false
+

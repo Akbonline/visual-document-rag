@@ -1,0 +1,20 @@
+[
+  {
+    "page_id": "manual:1",
+    "document_id": "manual",
+    "page_number": 1,
+    "text": "Robot startup guide. Charge the battery before first use and inspect the wheels."
+  },
+  {
+    "page_id": "manual:2",
+    "document_id": "manual",
+    "page_number": 2,
+    "text": "Error ERR-42 means the battery temperature is above its safe operating range. Stop charging and allow the unit to cool."
+  },
+  {
+    "page_id": "manual:3",
+    "document_id": "manual",
+    "page_number": 3,
+    "text": "Network setup requires the robot identifier, site identifier, and a valid Wi-Fi credential."
+  }
+]
