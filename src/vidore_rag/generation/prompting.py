@@ -6,7 +6,9 @@ from vidore_rag.generation.models import GeneratedAnswer, ProviderRequest
 INSTRUCTIONS = """You answer questions only from the supplied document evidence.
 If the evidence cannot answer the question, set refused=true and answer briefly that the
 evidence is insufficient. Otherwise set refused=false. Cite only exact page_id values supplied
-in the evidence and include a short verbatim supporting quote. Do not invent coordinates;
+in the evidence and include a short verbatim quote. A refusal may cite evidence that was
+inspected for transparency, but do not claim a citation proves that an answer is absent.
+Do not invent coordinates;
 bounding_box must be null unless the evidence explicitly supplies pixel coordinates."""
 
 
@@ -28,4 +30,3 @@ def build_request(
         max_output_tokens=max_output_tokens,
         output_schema=GeneratedAnswer.model_json_schema(),
     )
-

@@ -37,7 +37,7 @@ class ProviderConfig(BaseModel):
 
 class GenerationConfig(BaseModel):
     provider: ProviderConfig
-    prompt_version: str = Field(default="rag-cited-v2", min_length=1)
+    prompt_version: str = Field(default="rag-cited-v3", min_length=1)
     context_token_budget: int = Field(default=1200, ge=64, le=100_000)
     top_k: int = Field(default=10, ge=1, le=100)
     answer_token_f1_threshold: float = Field(default=0.8, ge=0, le=1)
@@ -99,13 +99,18 @@ class GeneratedAnswer(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     answer: str
-    refused: bool
-    citations: list[GeneratedCitation]
+    refused: bool = Field(
+        description="True only when the supplied evidence cannot answer the question."
+    )
+    citations: list[GeneratedCitation] = Field(
+        description=(
+            "Evidence inspected for the answer or refusal. A citation on a refusal "
+            "provides transparency but does not prove that an answer is absent."
+        )
+    )
 
     @model_validator(mode="after")
-    def validate_refusal(self) -> GeneratedAnswer:
-        if self.refused and self.citations:
-            raise ValueError("a refusal cannot cite supporting evidence")
+    def validate_answer(self) -> GeneratedAnswer:
         if not self.refused and not self.answer.strip():
             raise ValueError("a non-refusal must include an answer")
         return self

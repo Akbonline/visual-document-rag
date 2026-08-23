@@ -9,7 +9,7 @@ provider:
   cached_input_cost_per_million: 0.075
   output_cost_per_million: 4.50
 
-prompt_version: rag-cited-v2
+prompt_version: rag-cited-v3
 context_token_budget: 1200
 top_k: 10
 answer_token_f1_threshold: 0.80

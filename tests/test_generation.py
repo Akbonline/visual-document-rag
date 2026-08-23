@@ -292,6 +292,23 @@ def test_generated_answer_schema_forbids_unexpected_provider_fields() -> None:
         GeneratedAnswer.model_validate_json(json.dumps(payload))
 
 
+def test_refusal_may_cite_inspected_evidence_for_transparency() -> None:
+    answer = GeneratedAnswer(
+        answer="The supplied evidence is insufficient.",
+        refused=True,
+        citations=[
+            GeneratedCitation(
+                page_id="dataset:page:7",
+                quote="Available but incomplete evidence",
+                bounding_box=None,
+            )
+        ],
+    )
+
+    assert answer.refused is True
+    assert len(answer.citations) == 1
+
+
 def test_generated_answer_schema_satisfies_strict_provider_requirements() -> None:
     schema = GeneratedAnswer.model_json_schema()
     citation_schema = schema["$defs"]["GeneratedCitation"]
