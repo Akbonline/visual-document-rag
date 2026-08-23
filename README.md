@@ -4,6 +4,16 @@
 
 <div align="center">
 
+<a href="https://visual-document-rag.vercel.app/"><kbd>▶ LIVE EVIDENCE LAB</kbd></a>
+&nbsp;
+<a href="https://visual-document-rag-api.onrender.com/docs"><kbd>⌘ OPENAPI</kbd></a>
+&nbsp;
+<a href="https://visual-document-rag-api.onrender.com/api/v1/health"><kbd>● API HEALTH</kbd></a>
+&nbsp;
+<a href="https://github.com/Akbonline/visual-document-rag"><kbd>◇ SOURCE</kbd></a>
+
+<br><br>
+
 `Rendered pages` → `Canonical records` → `Retrieval` → `Evidence` → `Generation` → `Evaluation`
 
 **Local first · Reproducible · Evaluation aware · Fail closed**
@@ -62,7 +72,7 @@ The retriever searches chunks. The projection layer then converts those candidat
 
 ## ◇ Explore the evidence lab
 
-The deployable frontend replays the completed 24 query Gate C evaluation. It uses real answers, citations, source pages, human bounding boxes, token usage, cost, and latency measurements. It does not make paid model calls or expose an API key.
+**[Open the live evidence lab](https://visual-document-rag.vercel.app/).** The deployed frontend replays the completed 24 query Gate C evaluation and connects to the live research API. It uses real answers, citations, source pages, human bounding boxes, token usage, cost, and latency measurements. It does not make paid model calls or expose an API key.
 
 ```bash
 cd frontend
@@ -111,12 +121,27 @@ The **Output Validator** is bound to a server-retained retrieval trace. It check
 
 No LLM provider is called by the public workbench. Users copy the grounded prompt to a provider they control, then paste the structured answer back for deterministic validation.
 
-### Deploy the two services
+### Live deployment
+
+| Surface | Provider | Link |
+|:--|:--|:--|
+| Evidence lab and research workbench | Vercel | [visual-document-rag.vercel.app](https://visual-document-rag.vercel.app/) |
+| Read-only retrieval and validation API | Render | [visual-document-rag-api.onrender.com](https://visual-document-rag-api.onrender.com/) |
+| Interactive API contract | FastAPI OpenAPI | [Open `/docs`](https://visual-document-rag-api.onrender.com/docs) |
+| Readiness and model status | FastAPI health check | [Open `/api/v1/health`](https://visual-document-rag-api.onrender.com/api/v1/health) |
+
+The production frontend uses:
+
+```text
+VITE_API_BASE_URL=https://visual-document-rag-api.onrender.com
+```
+
+### Reproduce the deployment
 
 The frontend remains a static Vercel deployment. Deploy `render.yaml` as a Render Blueprint for the read-only FastAPI service, then set this Vercel environment variable and redeploy the frontend:
 
 ```text
-VITE_API_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com
+VITE_API_BASE_URL=https://visual-document-rag-api.onrender.com
 ```
 
 The Blueprint deliberately selects Render Standard with 2 GB RAM. Render Free and Starter provide 512 MB, which is not a reliable memory envelope for the full PyTorch and Transformers hybrid path. This is a paid deployment decision; change it only if you also remove or replace the dense runtime.
