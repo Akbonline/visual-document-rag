@@ -1,3 +1,6 @@
+import time
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 from types import SimpleNamespace
 
 import numpy as np
@@ -5,7 +8,7 @@ import pytest
 
 from vidore_rag.document_ir import ChunkRecord
 from vidore_rag.retrieval import dense
-from vidore_rag.retrieval.dense import DenseIndex
+from vidore_rag.retrieval.dense import DenseIndex, SentenceTransformerEncoder
 
 
 def chunk(chunk_id: str, page_id: str) -> ChunkRecord:
@@ -51,3 +54,35 @@ def test_explicit_unavailable_mps_fails(monkeypatch: pytest.MonkeyPatch) -> None
 
     with pytest.raises(RuntimeError, match="MPS was requested but is unavailable"):
         dense._resolve_device("mps")
+
+
+def test_sentence_transformer_encoder_serializes_shared_model_inference() -> None:
+    class ConcurrentEntryDetector:
+        def __init__(self) -> None:
+            self.guard = Lock()
+            self.active = 0
+            self.maximum_active = 0
+
+        def encode(self, texts: list[str], **_: object) -> np.ndarray:
+            with self.guard:
+                self.active += 1
+                self.maximum_active = max(self.maximum_active, self.active)
+            time.sleep(0.02)
+            with self.guard:
+                self.active -= 1
+            return np.ones((len(texts), 2), dtype=np.float32)
+
+    model = ConcurrentEntryDetector()
+    encoder = object.__new__(SentenceTransformerEncoder)
+    encoder._model = model
+    encoder._encode_lock = Lock()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(encoder.encode, [question], batch_size=1)
+            for question in ("first", "second")
+        ]
+        for future in futures:
+            assert future.result().shape == (1, 2)
+
+    assert model.maximum_active == 1

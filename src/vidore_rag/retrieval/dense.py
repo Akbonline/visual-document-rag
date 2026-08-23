@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from importlib import import_module
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 import numpy as np
@@ -53,6 +54,10 @@ class SentenceTransformerEncoder:
         self.model_name = model_name
         self.revision = revision
         self.device = resolved_device
+        # PyTorch's MPS backend can crash when one model is entered concurrently.
+        # Serialize only inference; retrieval callers and provider requests may
+        # still run concurrently around this narrow critical section.
+        self._encode_lock = Lock()
         self._model: Any = sentence_transformers.SentenceTransformer(
             model_name,
             revision=revision,
@@ -61,13 +66,14 @@ class SentenceTransformerEncoder:
         )
 
     def encode(self, texts: list[str], *, batch_size: int) -> NDArray[np.float32]:
-        values = self._model.encode(
-            texts,
-            batch_size=batch_size,
-            show_progress_bar=len(texts) > batch_size,
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-        )
+        with self._encode_lock:
+            values = self._model.encode(
+                texts,
+                batch_size=batch_size,
+                show_progress_bar=len(texts) > batch_size,
+                normalize_embeddings=True,
+                convert_to_numpy=True,
+            )
         return np.asarray(values, dtype=np.float32)
 
 
