@@ -21,14 +21,15 @@
 | Chunk to page projection | ✅ | A validated, fingerprinted projection contract precedes evaluation |
 | Reciprocal Rank Fusion | ✅ | Sparse and dense page rankings are combined without score calibration |
 | Artifact fingerprints | ✅ | Configuration and model revisions affect identity |
-| Failure attribution | ◇ | Retrieval, context, generation, citation, and latency classification is wired; live-provider validation remains |
-| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 56 portable tests, and 2 real-artifact regressions |
+| Failure attribution | ✅ | Retrieval, context, generation, citation, and latency classification is wired and exercised by Gate C |
+| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 56 Python tests, 4 frontend tests, and 2 real-artifact regressions |
 | ViDoRe V3 HR adapter | ✅ | Frozen revision, English queries, graded page qrels, answers, and pixel boxes |
 | Cached OCR ingestion | ✅ | 1,110 pages processed with zero failures and fingerprinted manifests |
 | Dense and hybrid retrieval | ✅ | Pinned MiniLM embeddings plus page level Reciprocal Rank Fusion |
 | Structure aware context | ✅ | Headings, tables, figures, citations, and fixed token budgets |
 | Real benchmark results | ✅ | All 318 English queries evaluated across five controlled runs |
-| Paired RAG generation | ◇ | Retrieved and oracle paths, structured answers, cost, tokens, TTR, citations, and resumable jobs are implemented; live results remain |
+| Paired RAG generation | ✅ | Retrieved and oracle paths, structured answers, cost, tokens, TTR, citations, resumable jobs, and live Gate C results |
+| Interactive evidence lab | ✅ | 24 real queries with answer controls, cited source pages, human boxes, cost, tokens, and TTR |
 
 ## ◈ See it work
 
@@ -57,6 +58,25 @@ manual:2  →  Error ERR-42 means the battery temperature is above its safe oper
 ```
 
 The retriever searches chunks. The projection layer then converts those candidates into page evidence so evaluation happens at the same granularity as the dataset judgments.
+
+## ◇ Explore the evidence lab
+
+The deployable frontend replays the completed 24 query Gate C evaluation. It uses real answers, citations, source pages, human bounding boxes, token usage, cost, and latency measurements. It does not make paid model calls or expose an API key.
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Create the static production bundle:
+
+```bash
+npm test
+npm run build
+```
+
+For a GitHub import in Vercel, set the Root Directory to `frontend`. The committed `vercel.json` builds and serves `dist`. Refresh the evidence bundle from the ignored local artifacts with `PYTHONPATH=src .venv/bin/python scripts/export_frontend_demo.py`.
 
 ## ◎ Run the tests
 

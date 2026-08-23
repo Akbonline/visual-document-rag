@@ -15,3 +15,5 @@ __pycache__/
 build/
 dist/
 results/
+node_modules/
+*.tsbuildinfo
