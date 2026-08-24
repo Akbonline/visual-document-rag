@@ -2,6 +2,22 @@ import { type FormEvent, useEffect, useState } from "react";
 import { validateAnswer, type RetrievalTrace, type ValidationResult } from "./api";
 import { percent } from "./format";
 
+function checkIcon(status: string): string {
+  if (status === "pass") return "✓";
+  if (status === "warning") return "!";
+  if (status === "not_applicable") return "−";
+  return "×";
+}
+
+function groundingMetric(
+  result: ValidationResult,
+  checkName: string,
+  value: number,
+): string {
+  const check = result.checks.find((candidate) => candidate.name === checkName);
+  return check?.status === "not_applicable" ? "N/A" : percent(value);
+}
+
 function templateFor(trace: RetrievalTrace | null): string {
   const pageId = trace?.context.items[0]?.page_id ?? "exact page_id from the evidence";
   return JSON.stringify(
@@ -85,14 +101,14 @@ export default function OutputValidator({ trace }: { trace: RetrievalTrace | nul
             <div className="validation-checks">
               {result.checks.map((check) => (
                 <article key={check.name} className={`check-${check.status}`}>
-                  <span>{check.status === "pass" ? "✓" : check.status === "warning" ? "!" : "×"}</span>
+                  <span>{checkIcon(check.status)}</span>
                   <div><strong>{check.name}</strong><p>{check.detail}</p></div>
                 </article>
               ))}
             </div>
             <div className="grounding-metrics">
-              <div><span>Context citations</span><strong>{percent(result.grounding.valid_context_precision)}</strong></div>
-              <div><span>Quote support</span><strong>{percent(result.grounding.quote_support_precision)}</strong></div>
+              <div><span>Context citations</span><strong>{groundingMetric(result, "Citation page membership", result.grounding.valid_context_precision)}</strong></div>
+              <div><span>Quote support</span><strong>{groundingMetric(result, "Quote support", result.grounding.quote_support_precision)}</strong></div>
               <div><span>Gold page recall</span><strong>{result.benchmark.status === "applicable" ? percent(result.grounding.gold_page_recall) : "N/A"}</strong></div>
               <div><span>Reference F1</span><strong>{result.benchmark.answer_quality ? percent(result.benchmark.answer_quality.token_f1) : "N/A"}</strong></div>
             </div>

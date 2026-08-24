@@ -176,4 +176,48 @@ describe("live research workbench", () => {
     await waitFor(() => expect(screen.getByText("Grounded contract passed")).toBeTruthy());
     expect(screen.getByText("Correctness not scored")).toBeTruthy();
   });
+
+  it("renders refusal-only grounding checks as not applicable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        response({
+          schema_version: "1",
+          trace_id: trace.trace_id,
+          valid: true,
+          checks: [
+            { name: "Structured output", status: "pass", detail: "Schema valid." },
+            { name: "Citation presence", status: "not_applicable", detail: "Refusal." },
+            { name: "Citation page membership", status: "not_applicable", detail: "Refusal." },
+            { name: "Quote support", status: "not_applicable", detail: "Refusal." },
+          ],
+          grounding: {
+            valid_context_precision: 0,
+            gold_page_precision: 0,
+            gold_page_recall: 0,
+            quote_support_precision: 0,
+          },
+          benchmark: {
+            status: "not_applicable",
+            reason: "No exact benchmark match.",
+            query_id: null,
+            reference_answers: [],
+            answer_quality: null,
+            citation_quality: null,
+            localization_quality: null,
+          },
+        }),
+      ),
+    );
+    render(<OutputValidator trace={trace} />);
+    fireEvent.change(screen.getByLabelText("GeneratedAnswer JSON"), {
+      target: {
+        value: JSON.stringify({ answer: "Evidence is insufficient.", refused: true, citations: [] }),
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Validate grounded output" }));
+
+    await waitFor(() => expect(screen.getByText("Grounded contract passed")).toBeTruthy());
+    expect(screen.getAllByText("N/A").length).toBeGreaterThanOrEqual(4);
+  });
 });

@@ -372,6 +372,34 @@ class RetrievalEngine:
                 detail="The answer satisfies the strict GeneratedAnswer schema.",
             )
         ]
+        if answer.refused:
+            checks.extend(
+                [
+                    ValidationCheck(
+                        name="Citation presence",
+                        status="not_applicable",
+                        detail=(
+                            "Not applicable: a refusal must not cite supporting evidence."
+                        ),
+                    ),
+                    ValidationCheck(
+                        name="Citation page membership",
+                        status="not_applicable",
+                        detail="Not applicable: the refusal contains no citations to inspect.",
+                    ),
+                    ValidationCheck(
+                        name="Quote support",
+                        status="not_applicable",
+                        detail="Not applicable: the refusal contains no quoted evidence.",
+                    ),
+                    ValidationCheck(
+                        name="Bounding box coordinate space",
+                        status="not_applicable",
+                        detail="Not applicable: the refusal contains no evidence locations.",
+                    ),
+                ]
+            )
+            return checks
         if not answer.refused and not answer.citations:
             checks.append(
                 ValidationCheck(

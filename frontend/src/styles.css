@@ -706,6 +706,12 @@ footer a { font-size: 11px; font-weight: 700; }
   color: #ffc857;
 }
 
+.validation-checks article.check-not_applicable > span {
+  border: 1px solid #7f93ad;
+  background: #111923;
+  color: #b9c8da;
+}
+
 .validation-checks strong {
   color: var(--terminal-green-soft);
 }

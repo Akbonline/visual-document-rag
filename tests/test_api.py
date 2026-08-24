@@ -196,6 +196,33 @@ def test_validator_rejects_unknown_page_and_unsupported_quote(tmp_path: Path) ->
     assert failed == {"Citation page membership", "Quote support"}
 
 
+def test_validator_accepts_refusal_without_citation_checks(tmp_path: Path) -> None:
+    engine = engine_for(tmp_path)
+    trace = engine.retrieve(
+        RetrieveRequest(question="What fact is absent from these pages?", mode="bm25")
+    )
+    answer = GeneratedAnswer.model_validate(
+        {
+            "answer": "The supplied evidence does not state that fact.",
+            "refused": True,
+            "citations": [],
+        }
+    )
+
+    validation = engine.validate(trace.trace_id, answer)
+
+    assert validation.valid
+    statuses = {check.name: check.status for check in validation.checks}
+    assert statuses == {
+        "Structured output": "pass",
+        "Citation presence": "not_applicable",
+        "Citation page membership": "not_applicable",
+        "Quote support": "not_applicable",
+        "Bounding box coordinate space": "not_applicable",
+    }
+    assert validation.benchmark.status == "not_applicable"
+
+
 def test_fastapi_contract_exposes_health_retrieval_and_validation(tmp_path: Path) -> None:
     test_engine = engine_for(tmp_path)
     application = create_app(engine=test_engine)
