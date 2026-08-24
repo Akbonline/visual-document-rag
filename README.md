@@ -1,4 +1,4 @@
-# ViDoRe RAG Beta
+# ViDoRe RAG V4 Beta
 
 > A measurable visual document RAG prototype with paired retrieved and oracle generation, explicit evidence contracts, and honest failure attribution.
 
@@ -14,11 +14,19 @@
 
 <br><br>
 
+<a href="docs/Akshat_Bajpai_VisualDocumentRAG_OnePager.pdf"><kbd>▣ ONE PAGER</kbd></a>
+&nbsp;
+<a href="docs/Akshat_Bajpai_VisualDocumentRAG_Appendix.pdf"><kbd>＋ TECHNICAL APPENDIX</kbd></a>
+
+<br><br>
+
 `Rendered pages` → `Canonical records` → `Retrieval` → `Evidence` → `Generation` → `Evaluation`
 
 **Local first · Reproducible · Evaluation aware · Fail closed**
 
 </div>
+
+Four design iterations progressively removed assumptions: V1 established the measurable OCR baseline, V2 separated dataset and evaluation contracts, V3 made the design implementation ready, and V4 narrowed the build to a reproducible beta backed by real retrieval and generation experiments.
 
 ## ✦ What exists today
 
@@ -32,7 +40,7 @@
 | Reciprocal Rank Fusion | ✅ | Sparse and dense page rankings are combined without score calibration |
 | Artifact fingerprints | ✅ | Configuration and model revisions affect identity |
 | Failure attribution | ✅ | Retrieval, context, generation, citation, and latency classification is wired and exercised by Gate C |
-| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 61 Python tests, 7 frontend tests, and real-artifact regressions |
+| Automated verification | ✅ | CMake, CTest, Ruff, strict mypy, CI, 62 Python tests, 8 frontend tests, and real-artifact regressions |
 | ViDoRe V3 HR adapter | ✅ | Frozen revision, English queries, graded page qrels, answers, and pixel boxes |
 | Cached OCR ingestion | ✅ | 1,110 pages processed with zero failures and fingerprinted manifests |
 | Dense and hybrid retrieval | ✅ | Pinned MiniLM embeddings plus page level Reciprocal Rank Fusion |
@@ -43,6 +51,23 @@
 | Live research workbench | ✅ | FastAPI retrieval traces, copyable grounded prompts, and trace-bound output validation |
 
 ## ◈ See it work
+
+<p align="center">
+  <a href="https://visual-document-rag.vercel.app/">
+    <img src="assets/readme/intro.png" alt="Evidence Lab landing page with measured ViDoRe retrieval, latency, and generation results" width="100%">
+  </a>
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><strong>Query Console</strong><br>Inspect sparse and dense candidates, page projection, fusion, budgeted evidence, and the exact grounded prompt.</td>
+    <td width="50%"><strong>Output Validator</strong><br>Bind an answer to its retrieval trace and verify schema, page membership, quote support, localization, and honest refusal semantics.</td>
+  </tr>
+  <tr>
+    <td><img src="assets/readme/query-console.png" alt="Live Query Console showing hybrid retrieval stages and copyable grounded context" width="100%"></td>
+    <td><img src="assets/readme/output-validator.png" alt="Output Validator passing a grounded refusal and marking citation checks not applicable" width="100%"></td>
+  </tr>
+</table>
 
 Python 3.11 or newer is required.
 
@@ -117,7 +142,7 @@ npm run dev
 
 The **Query Console** runs BM25, MiniLM dense retrieval, page projection, RRF, and token-budgeted context construction against the committed real corpus artifacts. It exposes each intermediate ranking and the exact prompt rather than substituting simulated data.
 
-The **Output Validator** is bound to a server-retained retrieval trace. It checks the strict JSON schema, citation membership, exact quote support, and pixel coordinate bounds. If the question exactly matches one of the 318 benchmark questions, it also reports reference-answer and gold-evidence metrics. For arbitrary questions, correctness is explicitly `not_applicable` because no trustworthy gold answer exists.
+The **Output Validator** is bound to a server-retained retrieval trace. It checks the strict JSON schema, citation membership, exact quote support, and pixel coordinate bounds. A valid refusal carries no citations, so citation-specific checks are explicitly `not_applicable` instead of being misreported as failures. If the question exactly matches one of the 318 benchmark questions, the validator also reports reference-answer and gold-evidence metrics. For arbitrary questions, correctness is `not_applicable` because no trustworthy gold answer exists.
 
 No LLM provider is called by the public workbench. Users copy the grounded prompt to a provider they control, then paste the structured answer back for deterministic validation.
 
@@ -355,9 +380,9 @@ A retriever may search chunks while a benchmark labels pages. Scoring chunk iden
 </details>
 
 <details>
-<summary><strong>Why the first chunker is intentionally simple</strong></summary>
+<summary><strong>Why fixed chunks remain the default</strong></summary>
 
-Fixed token windows provide a controlled baseline. The next context experiment will compare that baseline with structure aware handling for tables, figures, captions, and headings while holding retrieval candidates and token budgets constant.
+Fixed token windows provide a controlled baseline. A 24-query experiment held the query set, retriever, model, prompt, and token budgets constant while comparing fixed and structure-aware context. Retrieved answer F1 increased, but the identical-prompt oracle control moved slightly more; the adjusted diagnostic delta was `-0.0024`. The heuristic therefore did not earn promotion over the simpler default.
 
 </details>
 
@@ -370,20 +395,26 @@ Fixed token windows provide a controlled baseline. The next context experiment w
 | 2 | Dense retrieval plus measured RRF comparison | ✅ |
 | 3 | Fixed context versus structure aware context experiment | Complete; no demonstrated structure-aware gain |
 | 4 | Retrieved context versus oracle context generation | Gate C complete: 24 queries and 48 live calls |
-| 5 | Results, failure analysis, one pager, and submission polish | Planned |
+| 5 | Results, failure analysis, one pager, live workbench, and deployment | ✅ |
 
 ## ⊙ Scope boundary
 
-| V3 Beta implementation | V3 design only |
+| V4 Beta implementation | Future work |
 |:--|:--|
 | One verified ViDoRe slice | Multiple production dataset adapters |
 | OCR text path | ColPali visual late interaction |
 | Sparse, dense, and RRF comparison | Learned reranking |
 | Fixed and structure aware context | Full native Office fidelity |
-| Local Python application | Distributed services and Kubernetes |
-| Measured retrieval quality and latency | Production deployment and autoscaling |
+| Vercel frontend plus a single-instance Render FastAPI service | Shared state, horizontal scaling, and autoscaling |
+| Measured retrieval quality, latency, generation, cost, and TTR | Load, recovery, and failure-injection qualification |
 | Paired generation engine and 24-query stratified live measurements | Full 318-query generation benchmark |
 
-## → Next move
+## → Future work
 
-Finish the one-pager and failure analysis using the measured Gate C and chunk-policy evidence. Keep the full 318-query paid run gated: the next technically informative experiment is a targeted visual arm, not more calls through either unchanged text-only chunker.
+The next experiments are intentionally evidence-led:
+
+1. Add a targeted ColPali-style visual arm for the table and infographic failures where OCR loses structure, then measure whether its quality gain earns the extra storage, compute, and citation complexity.
+2. Add a second benchmark adapter and native Office ingestion to test transferability while preserving source tables, figures, speaker notes, and document structure.
+3. Evaluate a learned reranker only after profiling its marginal nDCG, latency, and cost against the current RRF baseline.
+4. Replace process-local traces and rate limits with shared storage, then add authentication, multi-instance scaling, load tests, recovery tests, and failure injection.
+5. Run the full 318-query paid generation benchmark only after a new retrieval or context arm can test a meaningful hypothesis; repeating the unchanged text path would add cost, not insight.
